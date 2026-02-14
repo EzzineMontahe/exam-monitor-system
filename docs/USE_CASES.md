@@ -99,15 +99,16 @@ Flow:
 3. Backend validates JWT.
 4. Backend verifies role = student.
 5. Backend registers student in active connections list.
-6. Backend logs connection event.
-7. Desktop enters active monitoring loop.
+6. Backend initializes risk score (0).
+7. Backend logs connection event.
+8. Desktop enters active monitoring loop.
 
 Failure:
 - Invalid token → connection rejected.
 - Expired token → connection rejected.
 
 Expected Outcome:
-Student marked as ONLINE in system.
+Student marked as ONLINE in system with initial risk score.
 
 ------------------------------------------------------------
 USE CASE 5: HEARTBEAT MONITORING
@@ -141,66 +142,231 @@ Instructor Flow:
 1. Instructor sends POST /blacklist.
 2. Backend stores blacklist item.
 3. Backend returns success.
+4. Backend broadcasts blacklist update notification.
 
 Desktop Flow:
 1. On startup:
    Desktop fetches GET /blacklist.
 2. Desktop stores blacklist locally.
-3. Monitoring loop compares running processes to blacklist.
-4. If match detected:
+3. On notification:
+   Desktop refreshes blacklist.
+4. Monitoring loop compares running processes to blacklist.
+5. If match detected:
    Trigger violation event.
 
 Expected Outcome:
 Blacklisted applications are detected locally.
 
 ------------------------------------------------------------
-USE CASE 7: VIOLATION DETECTION FLOW
+USE CASE 7: VIOLATION DETECTION WITH SCREENSHOT
 ------------------------------------------------------------
 
 Actor: Desktop
 
 Trigger:
 - Blacklisted application detected.
-- Suspicious window title detected (optional).
+- Suspicious window title detected.
 - Other rule violation.
 
 Flow:
-1. Desktop constructs JSON:
+1. Desktop detects violation.
+2. Desktop captures screenshot immediately:
+   - Capture full screen
+   - Compress to JPEG (60% quality)
+   - Convert to base64
+   - Validate size < 1 MB
+3. Desktop constructs JSON:
    {
      "event_type": "BLACKLIST_APP",
      "student_id": X,
-     "application_name": "...",
-     "timestamp": ISO_STRING
+     "application_name": "chrome.exe",
+     "timestamp": ISO_STRING,
+     "screenshot": {
+       "data": "BASE64_IMAGE",
+       "trigger_type": "VIOLATION"
+     }
    }
-2. Desktop sends via WebSocket.
-3. Backend validates structure.
-4. Backend stores in MonitoringEvents table.
-5. Backend broadcasts to instructors.
+4. Desktop sends via WebSocket.
+5. Backend validates structure and image.
+6. Backend saves screenshot to file system.
+7. Backend stores event in MonitoringEvents table with screenshot_id.
+8. Backend updates student risk score (+20).
+9. Backend broadcasts violation to instructors.
+
+Failure Scenarios:
+- Screenshot capture fails → send violation without screenshot
+- Image too large → compress further or skip
+- Network timeout → queue for retry
 
 Expected Outcome:
-Violation stored and displayed in dashboard.
+Violation stored with screenshot evidence, instructor alerted.
 
 ------------------------------------------------------------
-USE CASE 8: REAL-TIME DASHBOARD UPDATE
+USE CASE 8: WINDOW TITLE TRACKING
+------------------------------------------------------------
+
+Actor: Desktop
+
+Trigger:
+- Window focus changes
+
+Flow:
+1. Desktop detects window focus change.
+2. Desktop captures:
+   - Process name
+   - Window title
+   - Start time
+3. When window loses focus:
+   Desktop calculates duration.
+4. Desktop analyzes window title for keywords:
+   - "google", "chat", "answer", "cheat"
+5. If suspicious:
+   Desktop sends:
+   {
+     "event_type": "WINDOW_FOCUS",
+     "student_id": X,
+     "application_name": "chrome.exe",
+     "window_title": "Google - How to solve...",
+     "duration_seconds": 45,
+     "timestamp": ISO_STRING
+   }
+6. Backend validates and stores.
+7. Backend analyzes title for suspicious patterns.
+8. If suspicious:
+   Backend increases risk score (+10).
+   Backend broadcasts suspicious window alert.
+
+Expected Outcome:
+Suspicious window usage tracked and flagged.
+
+------------------------------------------------------------
+USE CASE 9: RISK SCORE CALCULATION
+------------------------------------------------------------
+
+Actor: Backend
+
+Trigger:
+- Any monitoring event received
+
+Flow:
+1. Backend receives event.
+2. Backend loads current risk score.
+3. Backend applies scoring rules:
+   - BLACKLIST_APP: +20
+   - SUSPICIOUS_WINDOW: +10
+   - RAPID_WINDOW_SWITCH: +5 each
+   - LONG_IDLE: +15
+4. Backend applies decay:
+   - -1 point per 2 minutes of good behavior
+5. Backend caps score at 100.
+6. Backend determines risk level:
+   - 0-30: LOW
+   - 31-60: MEDIUM
+   - 61-100: HIGH
+7. If risk level changed:
+   Backend broadcasts risk update.
+8. If risk score > 60:
+   Backend triggers automatic screenshot request.
+
+Expected Outcome:
+Student risk score reflects current behavior accurately.
+
+------------------------------------------------------------
+USE CASE 10: MANUAL SCREENSHOT REQUEST
+------------------------------------------------------------
+
+Actor: Instructor
+
+Trigger:
+- Instructor clicks "Request Screenshot" button
+
+Flow:
+1. Frontend sends POST /screenshots/request.
+2. Backend validates instructor role.
+3. Backend generates request_id.
+4. Backend sends WebSocket message to student:
+   {
+     "type": "SCREENSHOT_REQUEST",
+     "request_id": "abc123",
+     "reason": "Manual instructor request"
+   }
+5. Desktop receives request.
+6. Desktop captures screenshot.
+7. Desktop sends response:
+   {
+     "event_type": "SCREENSHOT_RESPONSE",
+     "student_id": X,
+     "request_id": "abc123",
+     "screenshot": {
+       "data": "BASE64_IMAGE",
+       "trigger_type": "MANUAL_REQUEST"
+     },
+     "timestamp": ISO_STRING
+   }
+8. Backend receives and stores screenshot.
+9. Backend broadcasts screenshot availability.
+10. Frontend displays screenshot to instructor.
+
+Failure Scenarios:
+- Student offline → return error
+- Screenshot timeout (30s) → notify instructor
+- Network failure → retry once
+
+Expected Outcome:
+Instructor receives screenshot within 5 seconds.
+
+------------------------------------------------------------
+USE CASE 11: REAL-TIME DASHBOARD UPDATE
 ------------------------------------------------------------
 
 Actor: Instructor Dashboard
 
 Flow:
 1. Frontend connects to WebSocket.
-2. Receives broadcast:
+2. Receives violation broadcast:
    {
      "type": "NEW_VIOLATION",
-     "data": {...}
+     "data": {
+       "student_id": 1,
+       "username": "student1",
+       "event_type": "BLACKLIST_APP",
+       "application_name": "chrome.exe",
+       "timestamp": "2026-03-01T10:45:00",
+       "screenshot_id": 5,
+       "risk_score": 45
+     }
    }
 3. Frontend updates violations table dynamically.
 4. Frontend highlights new violation visually.
+5. Frontend shows "Screenshot available" indicator.
+6. Frontend updates risk score badge.
 
 Expected Outcome:
-Instructor sees violation instantly.
+Instructor sees violation instantly with evidence indicator.
 
 ------------------------------------------------------------
-USE CASE 9: VIEW MONITORING HISTORY
+USE CASE 12: VIEW SCREENSHOT EVIDENCE
+------------------------------------------------------------
+
+Actor: Instructor
+
+Flow:
+1. Instructor clicks on violation with screenshot.
+2. Frontend requests GET /screenshots/{screenshot_id}.
+3. Backend validates instructor role.
+4. Backend returns screenshot metadata.
+5. Frontend displays thumbnail.
+6. Instructor clicks to enlarge.
+7. Frontend requests GET /screenshots/download/{screenshot_id}.
+8. Backend streams image data.
+9. Frontend displays full-size image in modal.
+10. Backend logs screenshot access.
+
+Expected Outcome:
+Instructor views screenshot evidence linked to violation.
+
+------------------------------------------------------------
+USE CASE 13: VIEW MONITORING HISTORY
 ------------------------------------------------------------
 
 Actor: Instructor
@@ -208,15 +374,25 @@ Actor: Instructor
 Flow:
 1. Instructor sends GET /monitoring/events?student_id=X
 2. Backend validates instructor role.
-3. Backend queries DB.
-4. Returns JSON list.
-5. Frontend renders history table.
+3. Backend queries DB with joins:
+   - MonitoringEvents
+   - Screenshots (if available)
+   - RiskScores
+4. Returns JSON list with all data.
+5. Frontend renders history table with:
+   - Event type
+   - Timestamp
+   - Application/window
+   - Screenshot thumbnail (if available)
+   - Risk score at that time
+6. Instructor can filter by event type.
+7. Instructor can click screenshots to view.
 
 Expected Outcome:
-Instructor can review past events.
+Instructor can review complete audit trail with evidence.
 
 ------------------------------------------------------------
-USE CASE 10: STUDENT DISCONNECT
+USE CASE 14: STUDENT DISCONNECT
 ------------------------------------------------------------
 
 Trigger:
@@ -227,11 +403,44 @@ Trigger:
 Flow:
 1. WebSocket disconnect event triggered.
 2. Backend removes student from active list.
-3. Backend broadcasts OFFLINE status.
-4. Dashboard updates student status.
+3. Backend finalizes risk score.
+4. Backend broadcasts OFFLINE status.
+5. Dashboard updates student status.
+6. Backend logs disconnect event.
 
 Expected Outcome:
 Instructor sees student offline in real time.
+
+------------------------------------------------------------
+USE CASE 15: SUSPICIOUS BEHAVIOR PATTERN DETECTION
+------------------------------------------------------------
+
+Actor: Backend
+
+Trigger:
+- Multiple window switches in short time
+
+Flow:
+1. Backend receives multiple WINDOW_FOCUS events.
+2. Backend detects pattern:
+   - 8+ window switches in 30 seconds
+3. Backend constructs behavior analysis.
+4. Backend increases risk score (+15).
+5. Backend triggers automatic screenshot.
+6. Backend broadcasts:
+   {
+     "type": "SUSPICIOUS_BEHAVIOR",
+     "data": {
+       "student_id": 1,
+       "behavior_type": "RAPID_WINDOW_SWITCH",
+       "details": "8 switches in 20 seconds",
+       "risk_score": 65
+     }
+   }
+7. Instructor dashboard highlights student.
+
+Expected Outcome:
+Pattern-based violations detected automatically.
 
 ------------------------------------------------------------
 SYSTEM-WIDE INVARIANTS
@@ -243,6 +452,12 @@ SYSTEM-WIDE INVARIANTS
 - All monitoring events must be validated.
 - No silent failures.
 - All JSON structures must match API_CONTRACT.
+- Screenshots only captured when triggered.
+- Screenshot capture never blocks monitoring loop.
+- Risk scores must be calculated consistently.
+- All screenshots must be linked to events.
+- Screenshots must be stored securely.
+- Screenshot access requires instructor role.
 
 ------------------------------------------------------------
 FOR AI AGENTS
@@ -253,3 +468,7 @@ When implementing features:
 - Do not invent alternative flows.
 - If uncertain, align implementation with defined use cases.
 - Maintain consistency across backend, desktop, and frontend.
+- Always implement screenshot capture on separate thread.
+- Always validate screenshot size before transmission.
+- Always link screenshots to triggering events.
+- Always update risk scores after events.

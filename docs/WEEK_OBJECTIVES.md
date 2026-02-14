@@ -1,10 +1,11 @@
-📄 WEEKS_OBJECTIVES.md
-🗓 WEEK 1 — AUTHENTICATION FOUNDATION
+# WEEK_OBJECTIVES.md
+
+📅 WEEK 1 — AUTHENTICATION FOUNDATION
 🎯 Global Goal:
 
 Full authentication system working across backend, desktop, and frontend.
 
-👑 BACKEND DEV — WEEK 1 OBJECTIVE
+💻 BACKEND DEV — WEEK 1 OBJECTIVE
 Deliverables:
 
 Working FastAPI app
@@ -127,12 +128,12 @@ Instructor login works.
 
 Protected dashboard route.
 
-🗓 WEEK 2 — WEBSOCKET & REAL-TIME CORE
+📅 WEEK 2 — WEBSOCKET & REAL-TIME CORE
 🎯 Global Goal:
 
 Real-time student connection established.
 
-👑 BACKEND DEV
+💻 BACKEND DEV
 Must Accomplish:
 
 Create WebSocket endpoint: /ws.
@@ -189,7 +190,7 @@ Definition of Done:
 
 Instructor sees live student list.
 
-🗓 WEEK 3 — MONITORING ENGINE
+📅 WEEK 3 — MONITORING ENGINE
 🎯 Global Goal:
 
 Detect and transmit violations.
@@ -213,7 +214,7 @@ Definition of Done:
 
 Launch blacklisted app → backend receives violation.
 
-👑 BACKEND DEV
+💻 BACKEND DEV
 Must Accomplish:
 
 Create MonitoringEvents table.
@@ -243,12 +244,12 @@ Definition of Done:
 
 Instructor sees live alerts.
 
-🗓 WEEK 4 — BLACKLIST CONTROL SYSTEM
+📅 WEEK 4 — BLACKLIST CONTROL SYSTEM
 🎯 Global Goal:
 
 Instructor can control restrictions dynamically.
 
-👑 BACKEND DEV
+💻 BACKEND DEV
 
 Create Blacklist model.
 
@@ -274,62 +275,226 @@ Periodically refresh blacklist.
 
 Enforce blacklist locally.
 
-🗓 WEEK 5 — HARDENING & ADVANCED DETECTION
-Goals:
+📅 WEEK 5 — HYBRID SMART MONITORING & HARDENING
+🎯 Global Goal:
 
-Improve reliability.
+Add intelligent monitoring with triggered screenshots and behavior analysis.
 
-Improve validation.
+Improve system reliability and user experience.
 
-Improve error handling.
+🖥 DESKTOP DEV (Heavy Week)
 
-Desktop:
+Must Accomplish:
 
-Desktop switching detection.
+Phase 1: Window Title Tracking
+- Implement window focus change detection
+- Capture window titles on focus change
+- Track duration spent in each window
+- Send WINDOW_FOCUS events via WebSocket
+- Implement keyword analysis locally (optional pre-filter)
 
-Strengthen monitoring loop.
+Phase 2: Screenshot Capture Module
+- Create ScreenshotCapture.cs class
+- Implement screen capture using System.Drawing
+- Compress to JPEG (60% quality)
+- Convert to base64
+- Validate size < 1 MB
+- Always capture on separate thread (async)
 
-Backend:
+Phase 3: Triggered Screenshot Logic
+- Automatically capture on violation detection
+- Capture on manual request from instructor
+- Implement random spot check (every 10 min - optional)
+- Never block monitoring loop
 
-Add structured logging.
+Phase 4: Behavior Pattern Detection
+- Track window switch frequency
+- Detect rapid window switching (8+ in 30s)
+- Send SUSPICIOUS_BEHAVIOR events
+- Implement local behavior scoring (optional)
 
-Improve validation.
+Definition of Done:
+- Window titles sent with focus events
+- Screenshot captured when violation occurs
+- Screenshot sent with violation event
+- Manual screenshot request works
+- UI remains responsive during capture
+- Image size always < 500 KB
 
-Frontend:
+💻 BACKEND DEV
 
-Filtering.
+Must Accomplish:
 
-Sorting.
+Phase 1: Database Extensions
+- Create Screenshots table
+- Create StudentRiskScores table
+- Add screenshot_id FK to MonitoringEvents
+- Add window_title, duration_seconds to MonitoringEvents
 
-Status indicators.
+Phase 2: Screenshot Management
+- Implement screenshot storage (file system)
+- Create /screenshots/ directory structure
+- Validate incoming screenshot data
+- Generate unique filenames
+- Link screenshots to events
+- Implement GET /screenshots endpoints
 
-🗓 WEEK 6 — FULL INTEGRATION & TESTING
-Goals:
+Phase 3: Risk Score System
+- Implement risk calculation logic
+- Create scoring rules engine:
+  * Blacklist violation: +20
+  * Suspicious window: +10
+  * Rapid switch: +5
+  * Long idle: +15
+- Implement score decay (-1 per 2 min)
+- Create GET /monitoring/risk-scores endpoint
+- Broadcast risk updates via WebSocket
 
-Full end-to-end test.
+Phase 4: Intelligent Triggers
+- Detect window title patterns
+- Trigger screenshot on high risk (>60)
+- Implement manual screenshot request
+- Handle screenshot request routing
 
-Bug fixes.
+Phase 5: Advanced Validation
+- Validate screenshot size/format
+- Implement rate limiting for screenshots
+- Add structured logging
+- Improve error responses
 
-Stability.
+Definition of Done:
+- Screenshots stored and retrievable
+- Risk scores calculated in real-time
+- Manual screenshot request works
+- Automatic screenshot on violations
+- All new endpoints working
+- Database migrations successful
 
-Demo preparation.
+🌐 FRONTEND DEV
+
+Must Accomplish:
+
+Phase 1: Risk Score Display
+- Add risk score badge to student list
+- Color-code by risk level (green/yellow/red)
+- Show risk score in real-time
+- Add risk score history chart (optional)
+
+Phase 2: Screenshot Viewing
+- Display "Screenshot available" indicator
+- Show screenshot thumbnails in violation list
+- Implement click-to-enlarge modal
+- Lazy-load screenshots (performance)
+- Cache loaded screenshots
+
+Phase 3: Manual Screenshot Request
+- Add "Request Screenshot" button per student
+- Show loading state during request
+- Display screenshot when received
+- Handle timeout gracefully
+
+Phase 4: Enhanced Violations Display
+- Add window title column to violations
+- Add duration indicator
+- Add screenshot preview column
+- Implement violation filtering by type
+- Add sorting by risk score
+
+Phase 5: Behavior Analytics Panel
+- Display suspicious behavior alerts
+- Show window switch frequency
+- Add activity timeline (optional)
+- Highlight high-risk students
+
+Phase 6: UI/UX Improvements
+- Add filtering capabilities
+- Add sorting options
+- Improve status indicators
+- Add loading states
+- Improve error messaging
+
+Definition of Done:
+- Risk scores displayed with colors
+- Screenshots viewable in modal
+- Manual screenshot request button works
+- Violations show window titles
+- High-risk students highlighted
+- UI smooth and responsive
+
+📅 WEEK 6 — FULL INTEGRATION & TESTING
+🎯 Global Goal:
+
+Full end-to-end test including screenshot features.
+
+Bug fixes, stability, demo preparation.
 
 Each team member must:
 
-Run full workflow daily.
+Phase 1: Integration Testing
+- Test full workflow with screenshots
+- Test manual screenshot requests
+- Test risk score accuracy
+- Test with multiple simultaneous students
+- Test screenshot storage/retrieval
+- Verify screenshot cleanup
 
-Fix issues.
+Phase 2: Performance Testing
+- Test with 20+ connected students
+- Monitor screenshot storage usage
+- Test WebSocket with image transmission
+- Verify no memory leaks
+- Test under poor network conditions
 
-Improve clarity.
+Phase 3: Bug Fixes
+- Fix edge cases
+- Handle screenshot failures gracefully
+- Improve reconnection logic
+- Fix UI glitches
+- Improve error handling
 
-Write minimal documentation.
+Phase 4: Polish & Documentation
+- Clean up code
+- Add comments
+- Update README
+- Create user guide (optional)
+- Prepare demo script
+
+Phase 5: Demo Preparation
+- Set up demo environment
+- Prepare demo scenario
+- Test demo flow multiple times
+- Prepare backup plan
+- Document known limitations
 
 Definition of Done:
+- Live demo works without crashes
+- Violations detected in real time
+- Screenshots captured and viewable
+- Risk scores update correctly
+- Blacklist enforced
+- System stable for 30+ minutes test
+- Can demonstrate to instructor successfully
 
-Live demo works without crashes.
+📊 FEATURE SUMMARY BY WEEK
 
-Violations detected in real time.
+Week 1: Authentication ✅
+Week 2: Real-time Connection ✅
+Week 3: Basic Monitoring ✅
+Week 4: Blacklist Control ✅
+Week 5: Smart Monitoring + Screenshots 🆕
+Week 6: Integration & Polish ✅
 
-Blacklist enforced.
+🎯 CRITICAL SUCCESS FACTORS
 
-System stable for 30+ minutes test.
+For Week 5 Success:
+- Screenshot capture MUST be async (non-blocking)
+- Image compression MUST keep size < 500 KB
+- Risk scoring MUST be consistent
+- Manual screenshot MUST work reliably
+- UI MUST remain responsive with screenshots
+
+For Week 6 Success:
+- System MUST handle 20+ students
+- Screenshots MUST not degrade performance
+- Demo MUST be reliable and impressive
+- All features MUST work together seamlessly

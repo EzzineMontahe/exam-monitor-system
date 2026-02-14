@@ -30,9 +30,24 @@ These core documents define the system:
 | `API_CONTRACT.md` | API endpoints, request/response formats |
 | `USE_CASES.md` | User stories and system behaviors |
 | `WEEK_OBJECTIVES.md` | Weekly goals for each role |
-| `PHASE_0.md` | Initial setup and prerequisites |
+| `AI_IMPLEMENTATION_GUIDE.md` | **⭐ Code templates, schemas, rules for AI** |
+| `PHASE_0.md` | Initial setup and prerequisites (if applicable) |
 
 > **These documents are the single source of truth.**
+
+### 🆕 **NEW: AI_IMPLEMENTATION_GUIDE.md**
+
+This document contains:
+- Exact code templates (Python, C#, JavaScript)
+- Complete SQL database schemas
+- Decision trees for logic flows
+- Risk score calculation algorithm
+- Screenshot capture implementation
+- WebSocket connection patterns
+- Validation checklists
+- Common mistakes to avoid
+
+**IMPORTANT:** Always include `AI_IMPLEMENTATION_GUIDE.md` when uploading documents to AI during coding sessions. It ensures AI generates code that matches your architecture exactly.
 
 ---
 
@@ -58,7 +73,8 @@ These core documents define the system:
 - `API_CONTRACT.md`
 - `USE_CASES.md`
 - `WEEK_OBJECTIVES.md`
-- `PHASE_0.md`
+- `AI_IMPLEMENTATION_GUIDE.md` ⭐
+- `PHASE_0.md` (if applicable)
 
 ### 📝 Then Paste:
 ```
@@ -82,6 +98,7 @@ These core documents define the system:
 - `ARCHITECTURE.md`
 - `API_CONTRACT.md`
 - `WEEK_OBJECTIVES.md` (ONLY your role + current week section)
+- `AI_IMPLEMENTATION_GUIDE.md` ⭐
 
 ### 📝 Then Paste:
 ```
@@ -102,6 +119,7 @@ These core documents define the system:
 **Before writing code in any session:**
 
 ### 📂 Upload:
+- `AI_IMPLEMENTATION_GUIDE.md` ⭐ **ALWAYS include this first**
 - Relevant section of `WEEK_OBJECTIVES.md`
 - The exact file(s) you are modifying (e.g., `auth_routes.py`, `WebSocketClient.cs`, `dashboard.js`)
 - Relevant section of `API_CONTRACT.md` (if endpoint-related)
@@ -121,6 +139,9 @@ These core documents define the system:
 
 > **AI must generate ONE step at a time and wait for confirmation.**
 
+### 💡 Pro Tip:
+Tell AI explicitly: *"Follow the code templates in AI_IMPLEMENTATION_GUIDE.md"* - This ensures generated code matches your exact patterns (JWT, screenshots, WebSocket, etc.).
+
 ---
 
 ## 📌 4️⃣ WHEN DEBUGGING
@@ -128,6 +149,7 @@ These core documents define the system:
 **If something fails:**
 
 ### 📂 Upload:
+- `AI_IMPLEMENTATION_GUIDE.md` ⭐ (helps AI understand expected patterns)
 - The file that throws the error
 - The related file(s)
 - The exact error message
@@ -155,6 +177,7 @@ These core documents define the system:
 **At the end of each week:**
 
 ### 📂 Upload:
+- `AI_IMPLEMENTATION_GUIDE.md` ⭐ (for validation checklists)
 - Main files developed during the week
 
 ### 📝 Then Paste:
@@ -167,6 +190,7 @@ These core documents define the system:
 - ✅ Detect security risks
 - ✅ Detect async/threading issues
 - ✅ Improve maintainability
+- ✅ Check against implementation guide standards
 
 ---
 
@@ -319,12 +343,44 @@ If you notice inconsistencies between documents:
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | Feb 2026 | Initial protocol established |
+| 1.1 | Feb 2026 | Added AI_IMPLEMENTATION_GUIDE.md with code templates |
+
+---
+
+## 📚 UNDERSTANDING YOUR DOCUMENTATION
+
+Your project has **two types of documentation**:
+
+### **Protocol & Process Documents:**
+- `README.md` (this file) - How to work with AI
+- `GIT_WORKFLOW.md` - How to use Git
+- `HOW_TO_USE_WITH_AI.md` - Guide to all documentation
+
+### **Technical Specification Documents:**
+- `AI_PROJECT_CONTEXT.md` - What you're building
+- `ARCHITECTURE.md` - How it's structured
+- `API_CONTRACT.md` - Exact API formats
+- `USE_CASES.md` - How it behaves
+- `WEEK_OBJECTIVES.md` - Implementation timeline
+- `AI_IMPLEMENTATION_GUIDE.md` ⭐ - Code templates for AI
+
+**Read protocol documents once. Reference technical documents constantly.**
 
 ---
 
 ## 📚 ADDITIONAL RESOURCES
 
+- [How to Use This Documentation with AI](./HOW_TO_USE_WITH_AI.md)
 - [Git Workflow Documentation](./GIT_WORKFLOW.md)
 - [Project Context](./AI_PROJECT_CONTEXT.md)
 - [Architecture Guide](./ARCHITECTURE.md)
 - [API Contract](./API_CONTRACT.md)
+- [AI Implementation Guide](./AI_IMPLEMENTATION_GUIDE.md) ⭐
+
+---
+
+**Remember:** Structure = Stability. Follow the protocol, deliver quality.
+
+---
+
+*Last Updated: February 2026*
