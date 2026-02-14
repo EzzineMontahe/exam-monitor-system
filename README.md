@@ -1,10 +1,18 @@
-#How To Use WITH AI
-##[AI_PROJECT_CONTEXT.md]
-##[ARCHITECTURE.md]
-##[API_CONTRACT.md]
-##[WEEK_OBJECTIVES.md]
+How To Use WITH AI
 
-And Paste the Following PROMPT:↓
+Upload The Following FILES:
+
+[AI_PROJECT_CONTEXT.md]
+
+[ARCHITECTURE.md]
+
+[API_CONTRACT.md]
+
+[WEEK_OBJECTIVES.md]
+
+
+And Paste the Following PROMPT:
+
 You are acting as a senior software architect and technical lead.
 
 I am building a distributed Exam Monitoring System.
