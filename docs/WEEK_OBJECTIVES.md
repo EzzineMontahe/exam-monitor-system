@@ -490,10 +490,13 @@ Phase 1: Database Extensions
   * id, instructor_id, student_id
   * started_at, ended_at, duration_seconds
   * student_notified, screenshots_captured
-- Create control_sessions table:
+- Create control_sessions table (COOPERATIVE MODEL):
   * id, instructor_id, student_id
-  * reason, authorized_by, admin_password_hash
-  * started_at, ended_at, duration_seconds
+  * reason VARCHAR(500) NOT NULL
+  * started_at TIMESTAMP NOT NULL
+  * ended_at TIMESTAMP
+  * duration_seconds INTEGER
+  * cooperation_issues BOOLEAN DEFAULT FALSE
 - Create control_actions table:
   * id, session_id, action_type
   * action_data (JSONB), timestamp
@@ -506,10 +509,10 @@ Phase 2: Session Management
   * Auto-timeout after 10 minutes
 - Create ControlManager class
   * Enforce: Only ONE active control per instructor
-  * Require admin password validation
   * Track active sessions
   * Auto-timeout after 5 minutes
   * Log every action to control_actions table
+  * Track cooperation_issues flag
 
 Phase 3: Stream Relay
 - Implement frame relay (Inspection Mode)
@@ -528,7 +531,7 @@ Phase 4: REST API Endpoints
 - POST /inspection/start
 - POST /inspection/stop
 - GET /inspection/history
-- POST /control/start (with admin auth)
+- POST /control/start (cooperative model, no admin password)
 - POST /control/stop
 - GET /control/history
 - GET /control/actions/{session_id}
@@ -541,10 +544,10 @@ Phase 5: WebSocket Protocol
 - Handle EMERGENCY_STOP from student
 
 Phase 6: Security & Audit
-- Admin password validation for control mode
 - Role verification (instructor only)
 - Session logging (all inspections/controls)
 - Action logging (every remote command)
+- Cooperation tracking for control sessions
 - Cleanup old sessions (delete after 30 days)
 
 Definition of Done:
@@ -634,11 +637,17 @@ Phase 1: End-to-End Testing
   * End inspection
   * Verify session logged
 - Test Interactive Mode with real student
-  * Authorize with admin password
+  * Start control session with reason
+  * Verify cooperation banner appears on student screen
   * Control mouse/keyboard
   * Close apps, navigate menus
-  * End control
-  * Verify all actions logged
+  * Verify actions appear in action log
+  * Test student interference (optional)
+  * Test emergency stop
+  * Test session timeout (5 min auto-end)
+  * End control normally
+  * Verify all actions logged with cooperation_issues flag
+  * Verify instructor can't start second session
 - Test concurrent monitoring
   * Inspection active while monitoring continues
   * Control active while monitoring continues
@@ -663,10 +672,10 @@ Phase 3: Performance Testing
 - Check for memory leaks
 
 Phase 4: Security Testing
-- Verify one-at-a-time enforcement
-- Verify admin password requirement
+- Verify only ONE control session per instructor
+- Verify student can emergency stop
 - Verify all sessions logged
-- Verify audit trail complete
+- Verify cooperation_issues tracked correctly
 - Test unauthorized access attempts
 
 Phase 5: Demo Preparation
