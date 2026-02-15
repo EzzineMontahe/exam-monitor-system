@@ -45,6 +45,10 @@ Backend:
 - Blacklist management
 - Screenshot storage and retrieval
 - Behavior analysis (risk scoring)
+- Screen stream relay (Inspection Mode)
+- Remote control command relay (Interactive Mode)
+- Inspection/Control session management
+- One-at-a-time enforcement for advanced features
 - Data persistence
 - Logging
 
@@ -61,6 +65,9 @@ Desktop Client:
     - When violation detected
     - On manual request from instructor
     - Random spot checks (optional)
+- Stream screen continuously (when inspection active)
+- Receive and execute remote control commands
+- Block local input during remote control
 - Send structured monitoring events
 
 Frontend Dashboard:
@@ -71,6 +78,9 @@ Frontend Dashboard:
 - View historical monitoring data
 - View screenshot evidence
 - Manual screenshot request
+- Live screen viewer (Inspection Mode)
+- Remote control interface (Interactive Mode)
+- Inspection/Control session controls
 - Behavior analytics display
 
 ------------------------------------------------------------
@@ -353,3 +363,114 @@ When generating code:
 - Implement screenshot features as optional/triggered only.
 - Never block main monitoring loop for screenshots.
 - Always validate data before transmission.
+
+------------------------------------------------------------
+14. INSPECTION MODE ARCHITECTURE (WEEK 6)
+------------------------------------------------------------
+
+Purpose:
+Allow instructor to view ONE student's screen live (5-10 FPS video stream).
+
+Components:
+
+Desktop (Screen Capture):
+- Capture screen at 5-10 FPS using Timer
+- Compress to JPEG (30% quality for streaming)
+- Convert to base64
+- Send frames via WebSocket
+- Maximum frame size: 100 KB
+- If larger, reduce resolution proportionally
+- Always on separate thread (non-blocking)
+
+Backend (Stream Relay):
+- Maintain inspection_sessions table
+- Enforce: Only ONE active inspection per instructor
+- Validate instructor role
+- Route frames from student to instructor
+- Log all inspection sessions
+- Auto-disconnect after 10 minutes
+
+Frontend (Stream Viewer):
+- Canvas element for rendering stream
+- Decode base64 frames
+- Display at 5-10 FPS
+- Controls: Start/Stop, Screenshot, Record
+- Must close to inspect another student
+
+Data Flow:
+1. Instructor clicks [Watch] on student
+2. Frontend sends START_INSPECTION to backend
+3. Backend validates (no concurrent inspections)
+4. Backend sends START_STREAMING to student desktop
+5. Desktop captures frames (5 FPS) → sends to backend
+6. Backend relays frames to instructor
+7. Frontend renders frames on canvas
+8. Instructor clicks [End] → stops streaming
+
+Security:
+- Instructor role required
+- All inspections logged
+- Student can be notified (optional)
+- Session timeout: 10 minutes
+
+------------------------------------------------------------
+15. INTERACTIVE MODE ARCHITECTURE
+------------------------------------------------------------
+
+Purpose:
+Allow instructor to control ONE student's computer remotely.
+
+Components:
+
+Desktop (Command Execution):
+- Receive control commands via WebSocket
+- Block local user input (keyboard/mouse)
+- Execute remote commands:
+  * MOUSE_MOVE: Move cursor to (x,y)
+  * MOUSE_CLICK: Click at (x,y)
+  * KEY_PRESS: Press key
+  * KEY_TYPE: Type text
+- Show red cursor (instructor's cursor)
+- Display notification: "Remote control active"
+- Log all executed commands
+- Emergency stop: CTRL+ALT+SHIFT+E
+
+Backend (Command Relay):
+- Maintain control_sessions table
+- Maintain control_actions log (audit trail)
+- Enforce: Only ONE active control per instructor
+- Require admin password for authorization
+- Validate instructor role
+- Route commands from instructor to student
+- Log every action with timestamp
+- Auto-disconnect after 5 minutes
+- Rate limit: Max 100 commands per second
+
+Frontend (Control Interface):
+- Canvas for viewing student screen
+- Capture instructor's mouse/keyboard
+- Send commands to backend
+- Show control status
+- Action log display
+- Must close to control another student
+
+Data Flow:
+1. Instructor clicks [Control] on student
+2. Instructor enters admin password + reason
+3. Backend validates authorization
+4. Backend sends START_CONTROL to student desktop
+5. Desktop blocks local input, shows notification
+6. Desktop streams screen to instructor (like inspection)
+7. Instructor's mouse/keyboard captured
+8. Commands sent: Instructor → Backend → Student
+9. Desktop executes commands
+10. Instructor clicks [Exit] → control released
+
+Security:
+- Instructor + admin authorization required
+- Reason for control logged
+- Student MUST be notified (cannot be silent)
+- All actions logged in control_actions table
+- Student emergency stop available
+- Session timeout: 5 minutes
+- Limited permissions (cannot access personal files)
