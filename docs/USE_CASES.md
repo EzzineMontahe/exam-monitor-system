@@ -531,35 +531,32 @@ Expected Outcome:
 - All inspection sessions logged for audit
 
 ------------------------------------------------------------
-USE CASE 17: INTERACTIVE MODE (REMOTE CONTROL)
+USE CASE 17: INTERACTIVE MODE (COOPERATIVE REMOTE HELP)
 ------------------------------------------------------------
 
 Actor: Instructor
 
 Trigger:
 - Student's exam software frozen
-- Need to close forbidden app remotely
-- Investigate cheating hands-on
+- Student needs guidance navigating the exam interface
+- Student accidentally closed important window
 - Technical support needed
 
 Flow:
-1. Student (Alice) reports exam software frozen
+1. Student (Alice) messages instructor: "My exam froze!"
 2. Instructor clicks [Control] button next to Alice
-3. Authorization dialog appears
-4. Instructor enters:
-   - Admin password
-   - Reason: "Technical assistance - frozen exam"
-5. Frontend sends POST /control/start with credentials
+3. Reason dialog appears (optional but recommended)
+4. Instructor enters: "Technical assistance - frozen exam"
+5. Frontend sends POST /control/start with reason
 6. Backend validates:
    - Instructor role
-   - Admin password correct
    - No other control session active for this instructor
 7. Backend creates control session
 8. Backend sends START_CONTROL to Alice's desktop
 9. Alice's desktop:
-   - Blocks local input (mouse/keyboard disabled)
-   - Shows full-screen notification: "Instructor controlling your computer"
-   - Starts streaming screen to instructor
+   - Shows cooperation banner at top of screen:
+     "Instructor helping - please keep hands free"
+   - Starts streaming screen to instructor (5 FPS)
    - Listens for remote commands
 10. Instructor's dashboard:
     - Opens control interface (full-screen)
@@ -573,18 +570,27 @@ Flow:
 15. Instructor navigates to frozen exam.exe
 16. Right-clicks → selects "Restart application"
 17. All actions sent as commands and executed
-18. Problem resolved - exam software restarted
-19. Instructor clicks [Exit Control]
-20. Backend sends STOP_CONTROL
-21. Alice's desktop:
-    - Unblocks local input
-    - Removes notification
+18. Alice sees cursor moving and application restarting
+19. Alice keeps hands off mouse (as requested by banner)
+20. Problem resolved - exam software restarted
+21. Instructor clicks [Exit Control]
+22. Backend sends STOP_CONTROL
+23. Alice's desktop:
+    - Removes cooperation banner
     - Stops streaming
-22. Session logged with all 42 actions performed
+24. Session logged with all 42 actions performed
+
+What If Student Doesn't Cooperate?:
+- Student moves mouse while instructor is trying to help
+- Desktop can detect interference (optional feature)
+- System can:
+  a) Show reminder: "Please let instructor help"
+  b) Log interference for audit
+  c) Auto-end session if excessive interference
+- Instructor can note in report: "Student uncooperative"
 
 Constraints:
 - Only ONE student controllable at a time per instructor
-- Admin password required (not just instructor login)
 - Student MUST be notified (cannot be silent)
 - Maximum session duration: 5 minutes (auto-disconnect)
 - Limited permissions (cannot access personal files)
@@ -592,13 +598,15 @@ Constraints:
 - Student can emergency stop: CTRL+ALT+SHIFT+E
 
 Failure Scenarios:
-- Invalid admin password → 401 Unauthorized
 - Student offline → Error: "Student not connected"
 - Another control active → Error: "Close current session first"
 - Emergency stop triggered → Session ends immediately
+- Student interferes too much → Session can be ended
 
 Expected Outcome:
-- Instructor successfully controls student's computer
-- Technical issue resolved remotely
+- Instructor successfully helps student remotely
+- Technical issue resolved with student cooperation
 - All actions logged in control_actions table
-- Student regains control after session ends
+- Student learned by watching (educational benefit)
+- Audit trail shows complete session history
+- Cooperation (or lack thereof) documented

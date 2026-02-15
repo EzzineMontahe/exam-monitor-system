@@ -428,11 +428,11 @@ Implement professional-grade proctoring features (Inspection & Interactive modes
 Complete full-system integration and testing.
 Prepare impressive final demo.
 
-🖥 DESKTOP DEV — WEEK 6 OBJECTIVE (Heavy Week)
+🖥 DESKTOP DEV — WEEK 6 OBJECTIVE
 
 Must Accomplish:
 
-Phase 1: Screen Streaming (Inspection Mode)
+Phase 1: Screen Streaming (Inspection Mode) - UNCHANGED
 - Implement continuous screen capture (5-10 FPS)
 - Create ScreenStreamCapture.cs class
 - Capture screen using Timer (every 200ms for 5 FPS)
@@ -444,19 +444,18 @@ Phase 1: Screen Streaming (Inspection Mode)
 - Always on separate thread (non-blocking)
 - Show optional notification: "👁️ Being watched"
 
-Phase 2: Remote Control (Interactive Mode)
+Phase 2: Cooperative Remote Control (SIMPLIFIED - NO INPUT BLOCKING)
 - Create RemoteControlHandler.cs class
-- Implement input blocking mechanism
-  * Block local mouse events
-  * Block local keyboard events
-  * Intercept at low level using Windows API
+- Implement cooperation banner (non-blocking notification)
+  * Top banner with message: "🎮 Instructor helping - please keep hands free"
+  * Semi-transparent, doesn't block input
+  * Includes [End Session] button
 - Implement command execution
   * MOUSE_MOVE → SetCursorPos()
   * MOUSE_CLICK → mouse_event()
   * KEY_PRESS → keybd_event()
 - Display red cursor for instructor
-- Show full-screen notification "🎮 Remote control active"
-- Implement emergency stop (CTRL+ALT+SHIFT+E)
+- Implement emergency stop (CTRL+ALT+SHIFT+E) - just ends session
 - Log all executed commands locally
 
 Phase 3: Integration
@@ -467,8 +466,8 @@ Phase 3: Integration
 
 Phase 4: Testing
 - Test screen streaming quality (5 FPS acceptable)
-- Test input blocking (student can't interfere)
 - Test remote control accuracy
+- Test cooperation banner visibility
 - Test emergency stop
 - Test with poor network conditions
 
@@ -476,10 +475,11 @@ Definition of Done:
 - Screen streaming works at 5 FPS
 - Frames always < 100 KB
 - Remote control accurate (mouse/keyboard)
-- Student input blocked during control
-- Emergency stop functional
+- Cooperation banner visible during entire session
+- Emergency stop functional (CTRL+ALT+SHIFT+E)
 - No crashes during sessions
 - Monitoring continues during advanced features
+- All commands logged for audit
 
 💻 BACKEND DEV — WEEK 6 OBJECTIVE
 

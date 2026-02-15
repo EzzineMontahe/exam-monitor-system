@@ -65,10 +65,10 @@ This system uses HYBRID SMART MONITORING:
 
 ADVANCED PROCTORING (WEEK 6):
 - Live screen viewing (Inspection Mode) - 5-10 FPS video stream
-- Remote computer control (Interactive Mode) - full mouse/keyboard control
-- Both modes: Only ONE student at a time
+- Remote computer control (Interactive Mode) - COOPERATIVE assistance model
+- Both modes: Only ONE student at a time per instructor
 - Inspection: Optional student notification, 10-minute timeout
-- Control: Mandatory student notification, admin password required, 5-minute timeout
+- Control: Cooperative banner notification, NO admin password (trust-based), 5-minute timeout
 - All sessions logged for complete audit trail
 
 NOT continuous surveillance:
@@ -87,7 +87,7 @@ SECURITY REQUIREMENTS:
 - Screenshot access requires instructor role.
 - Screenshot data deleted after exam period (30 days).
 - Inspection/Control require instructor role.
-- Interactive mode requires admin password.
+- Interactive mode uses COOPERATIVE model (trust-based, no admin password).
 - All inspection/control sessions logged.
 - Student can emergency stop remote control (CTRL+ALT+SHIFT+E).
 
@@ -104,6 +104,7 @@ DEVELOPMENT RULES:
 - Risk score calculation must be efficient.
 - Enforce one-at-a-time for inspection/control.
 - Log all remote control actions.
+- Interactive mode is cooperative (student aware, can interfere).
 
 PERFORMANCE REQUIREMENTS:
 - System must handle 20+ concurrent students.
@@ -140,5 +141,5 @@ When guiding me:
 - Implement screenshot features as triggered/optional only.
 - Never compromise monitoring loop for screenshot capture.
 - Enforce one-at-a-time for advanced proctoring features.
-- Always validate admin authorization for interactive mode.
+- Interactive mode is COOPERATIVE (no admin password, trust-based for educational environment).
 - Log all inspection/control sessions for audit compliance.

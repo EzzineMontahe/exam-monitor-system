@@ -96,7 +96,7 @@ CREATE TABLE student_risk_scores (
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Inspection Sessions
+-- Inspection Sessions 
 CREATE TABLE inspection_sessions (
     id SERIAL PRIMARY KEY,
     instructor_id INTEGER NOT NULL REFERENCES users(id),
@@ -116,16 +116,16 @@ CREATE TABLE control_sessions (
     instructor_id INTEGER NOT NULL REFERENCES users(id),
     student_id INTEGER NOT NULL REFERENCES users(id),
     reason VARCHAR(500) NOT NULL,
-    admin_password_hash VARCHAR(255) NOT NULL,
-    authorized_by INTEGER REFERENCES users(id),
+    authorized_by INTEGER REFERENCES users(id),  -- who approved
     started_at TIMESTAMP NOT NULL,
     ended_at TIMESTAMP,
     duration_seconds INTEGER,
+    student_cooperated BOOLEAN DEFAULT TRUE,  -- track if student interfered
     INDEX idx_instructor (instructor_id),
     INDEX idx_student (student_id)
 );
 
--- Control Actions Log (Audit Trail)
+-- Control Actions Log
 CREATE TABLE control_actions (
     id SERIAL PRIMARY KEY,
     session_id INTEGER NOT NULL REFERENCES control_sessions(id) ON DELETE CASCADE,

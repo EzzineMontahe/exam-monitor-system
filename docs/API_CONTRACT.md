@@ -634,7 +634,7 @@ Response:
 ]
 
 ------------------------------------------------------------
-12. INTERACTIVE MODE ENDPOINTS
+12. INTERACTIVE MODE ENDPOINTS (COOPERATIVE MODEL)
 ------------------------------------------------------------
 
 POST /control/start
@@ -642,8 +642,8 @@ POST /control/start
 Request:
 {
   "student_id": 123,
-  "reason": "Technical assistance",
-  "admin_password": "***"
+  "reason": "Technical assistance - exam software frozen"
+  // NO admin password required
 }
 
 Response:
@@ -651,12 +651,12 @@ Response:
   "status": "control_active",
   "session_id": "ctrl_xyz789",
   "started_at": "2026-03-15T10:45:00Z",
-  "expires_at": "2026-03-15T10:50:00Z"
+  "expires_at": "2026-03-15T10:50:00Z",
+  "cooperative_mode": true  // Indicates student cooperation expected
 }
 
 Errors:
 - 400: Student offline
-- 401: Invalid admin password
 - 403: Not instructor role
 - 409: Another control session already active
 - 404: Student not found
@@ -675,7 +675,8 @@ Response:
   "status": "stopped",
   "duration_seconds": 135,
   "actions_logged": 42,
-  "ended_at": "2026-03-15T10:47:15Z"
+  "ended_at": "2026-03-15T10:47:15Z",
+  "cooperation_issues": false  // true if student interfered
 }
 
 ------------------------------------------------------------
@@ -694,7 +695,8 @@ Response:
     "started_at": "2026-03-15T10:45:00Z",
     "ended_at": "2026-03-15T10:47:15Z",
     "duration_seconds": 135,
-    "actions_count": 42
+    "actions_count": 42,
+    "cooperation_issues": false
   }
 ]
 
@@ -717,4 +719,3 @@ Response:
     "timestamp": "2026-03-15T10:45:24Z"
   }
 ]
-
