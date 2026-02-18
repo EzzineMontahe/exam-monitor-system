@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Monitor</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script>
+        // Auto-route: if logged in go to dashboard, otherwise go to login
+        (function () {
+            const token = localStorage.getItem('access_token');
+            const role = localStorage.getItem('role');
+            if (token && role === 'instructor') {
+                window.location.href = 'dashboard.html';
+            } else {
+                window.location.href = 'login.html';
+            }
+        })();
+    </script>
+</head>
+<body>
+    <p>Redirecting...</p>
+</body>
+</html>

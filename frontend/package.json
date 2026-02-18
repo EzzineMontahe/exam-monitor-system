@@ -1,0 +1,11 @@
+{
+  "name": "exam-monitor-frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "live-server public",
+    "dev": "live-server public --port=3000"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
