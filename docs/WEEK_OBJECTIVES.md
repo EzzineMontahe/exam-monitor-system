@@ -421,59 +421,281 @@ Definition of Done:
 - High-risk students highlighted
 - UI smooth and responsive
 
-📅 WEEK 6 — FULL INTEGRATION & TESTING
+📅 WEEK 6 — ADVANCED PROCTORING & FINAL INTEGRATION
 🎯 Global Goal:
 
-Full end-to-end test including screenshot features.
+Implement professional-grade proctoring features (Inspection & Interactive modes).
+Complete full-system integration and testing.
+Prepare impressive final demo.
 
-Bug fixes, stability, demo preparation.
+🖥 DESKTOP DEV — WEEK 6 OBJECTIVE
 
-Each team member must:
+Must Accomplish:
 
-Phase 1: Integration Testing
-- Test full workflow with screenshots
-- Test manual screenshot requests
-- Test risk score accuracy
-- Test with multiple simultaneous students
-- Test screenshot storage/retrieval
-- Verify screenshot cleanup
+Phase 1: Screen Streaming (Inspection Mode) - UNCHANGED
+- Implement continuous screen capture (5-10 FPS)
+- Create ScreenStreamCapture.cs class
+- Capture screen using Timer (every 200ms for 5 FPS)
+- Compress frames to JPEG (30% quality)
+- Convert to base64
+- Validate frame size < 100 KB
+- Send SCREEN_FRAME events via WebSocket
+- Implement START_STREAMING / STOP_STREAMING handlers
+- Always on separate thread (non-blocking)
+- Show optional notification: "👁️ Being watched"
 
-Phase 2: Performance Testing
-- Test with 20+ connected students
-- Monitor screenshot storage usage
-- Test WebSocket with image transmission
-- Verify no memory leaks
-- Test under poor network conditions
+Phase 2: Cooperative Remote Control (SIMPLIFIED - NO INPUT BLOCKING)
+- Create RemoteControlHandler.cs class
+- Implement cooperation banner (non-blocking notification)
+  * Top banner with message: "🎮 Instructor helping - please keep hands free"
+  * Semi-transparent, doesn't block input
+  * Includes [End Session] button
+- Implement command execution
+  * MOUSE_MOVE → SetCursorPos()
+  * MOUSE_CLICK → mouse_event()
+  * KEY_PRESS → keybd_event()
+- Display red cursor for instructor
+- Implement emergency stop (CTRL+ALT+SHIFT+E) - just ends session
+- Log all executed commands locally
 
-Phase 3: Bug Fixes
-- Fix edge cases
-- Handle screenshot failures gracefully
-- Improve reconnection logic
-- Fix UI glitches
-- Improve error handling
+Phase 3: Integration
+- Ensure streaming doesn't interfere with monitoring
+- Handle concurrent operations gracefully
+- Maintain monitoring during inspection/control
+- Auto-reconnect if WebSocket drops during session
 
-Phase 4: Polish & Documentation
-- Clean up code
-- Add comments
-- Update README
-- Create user guide (optional)
-- Prepare demo script
+Phase 4: Testing
+- Test screen streaming quality (5 FPS acceptable)
+- Test remote control accuracy
+- Test cooperation banner visibility
+- Test emergency stop
+- Test with poor network conditions
+
+Definition of Done:
+- Screen streaming works at 5 FPS
+- Frames always < 100 KB
+- Remote control accurate (mouse/keyboard)
+- Cooperation banner visible during entire session
+- Emergency stop functional (CTRL+ALT+SHIFT+E)
+- No crashes during sessions
+- Monitoring continues during advanced features
+- All commands logged for audit
+
+💻 BACKEND DEV — WEEK 6 OBJECTIVE
+
+Must Accomplish:
+
+Phase 1: Database Extensions
+- Create inspection_sessions table:
+  * id, instructor_id, student_id
+  * started_at, ended_at, duration_seconds
+  * student_notified, screenshots_captured
+- Create control_sessions table (COOPERATIVE MODEL):
+  * id, instructor_id, student_id
+  * reason VARCHAR(500) NOT NULL
+  * started_at TIMESTAMP NOT NULL
+  * ended_at TIMESTAMP
+  * duration_seconds INTEGER
+  * cooperation_issues BOOLEAN DEFAULT FALSE
+- Create control_actions table:
+  * id, session_id, action_type
+  * action_data (JSONB), timestamp
+
+Phase 2: Session Management
+- Create InspectionManager class
+  * Enforce: Only ONE active inspection per instructor
+  * Track active sessions: {instructor_id: student_id}
+  * Validate no concurrent inspections
+  * Auto-timeout after 10 minutes
+- Create ControlManager class
+  * Enforce: Only ONE active control per instructor
+  * Track active sessions
+  * Auto-timeout after 5 minutes
+  * Log every action to control_actions table
+  * Track cooperation_issues flag
+
+Phase 3: Stream Relay
+- Implement frame relay (Inspection Mode)
+  * Receive SCREEN_FRAME from student
+  * Validate frame size
+  * Relay to watching instructor
+  * Track frame rate
+- Implement command relay (Interactive Mode)
+  * Receive commands from instructor
+  * Validate session active
+  * Relay to controlled student
+  * Log every command
+  * Rate limit: 100 commands/second
+
+Phase 4: REST API Endpoints
+- POST /inspection/start
+- POST /inspection/stop
+- GET /inspection/history
+- POST /control/start (cooperative model, no admin password)
+- POST /control/stop
+- GET /control/history
+- GET /control/actions/{session_id}
+
+Phase 5: WebSocket Protocol
+- Add START_STREAMING / STOP_STREAMING messages
+- Add SCREEN_FRAME relay
+- Add START_CONTROL / STOP_CONTROL messages
+- Add REMOTE_COMMAND relay
+- Handle EMERGENCY_STOP from student
+
+Phase 6: Security & Audit
+- Role verification (instructor only)
+- Session logging (all inspections/controls)
+- Action logging (every remote command)
+- Cooperation tracking for control sessions
+- Cleanup old sessions (delete after 30 days)
+
+Definition of Done:
+- Both modes enforce one-at-a-time
+- Admin auth works for control mode
+- Frames relay correctly (inspection)
+- Commands relay correctly (control)
+- All endpoints functional
+- All sessions logged
+- Auto-timeout working
+
+🌐 FRONTEND DEV — WEEK 6 OBJECTIVE
+
+Must Accomplish:
+
+Phase 1: Inspection Mode UI
+- Add [👁️ Watch] button to each student row
+- Create inspection modal (full-screen)
+  * Canvas element for video stream
+  * Controls: [📸 Screenshot] [❌ End]
+  * Real-time info panel (active window, apps)
+  * Session timer
+- Implement frame rendering
+  * Decode base64 frames
+  * Draw to canvas at 5 FPS
+  * Handle dropped frames gracefully
+- Disable other [Watch] buttons during inspection
+- Show "Inspection active" indicator
+
+Phase 2: Interactive Mode UI
+- Add [🎮 Control] button to each student row
+- Create authorization dialog
+  * Admin password input
+  * Reason dropdown/text field
+  * [Authorize & Connect] button
+- Create control interface modal (full-screen)
+  * Canvas for student screen
+  * Mouse/keyboard capture
+  * Action log panel (shows commands sent)
+  * Controls: [🔒 Lock Input] [❌ Exit]
+- Implement command capture
+  * Capture mouse movement on canvas
+  * Convert to coordinates
+  * Send MOUSE_MOVE commands
+  * Capture clicks → MOUSE_CLICK
+  * Capture keyboard → KEY_PRESS
+- Disable other [Control] buttons during session
+- Show "Control active" indicator
+
+Phase 3: Integration
+- Ensure modals don't break dashboard
+- Maintain WebSocket during sessions
+- Handle session timeouts gracefully
+- Show appropriate error messages
+
+Phase 4: User Experience
+- Loading states for session start
+- Smooth animations
+- Clear status indicators
+- Session end confirmation dialogs
+- Error handling (student offline, timeout, etc.)
+
+Phase 5: History & Audit
+- Add "Inspection History" tab
+  * List all past inspections
+  * Filter by student, date, instructor
+- Add "Control History" tab
+  * List all past control sessions
+  * Show reason, duration, actions count
+  * View action log for each session
+
+Definition of Done:
+- Inspection modal renders stream smoothly
+- Control modal captures input accurately
+- Only one session active at a time (UI enforced)
+- History tabs functional
+- All error cases handled
+- UI responsive and polished
+
+📊 INTEGRATION & TESTING (ALL ROLES)
+
+Phase 1: End-to-End Testing
+- Test Inspection Mode with real student
+  * Start inspection
+  * View screen live (5 FPS)
+  * Capture screenshots during inspection
+  * End inspection
+  * Verify session logged
+- Test Interactive Mode with real student
+  * Start control session with reason
+  * Verify cooperation banner appears on student screen
+  * Control mouse/keyboard
+  * Close apps, navigate menus
+  * Verify actions appear in action log
+  * Test student interference (optional)
+  * Test emergency stop
+  * Test session timeout (5 min auto-end)
+  * End control normally
+  * Verify all actions logged with cooperation_issues flag
+  * Verify instructor can't start second session
+- Test concurrent monitoring
+  * Inspection active while monitoring continues
+  * Control active while monitoring continues
+  * Screenshots still work during sessions
+
+Phase 2: Edge Case Testing
+- Test network issues
+  * Dropped frames during inspection
+  * Commands lost during control
+  * Auto-reconnect behavior
+- Test timeout scenarios
+  * 10 min inspection timeout
+  * 5 min control timeout
+- Test emergency stop (student CTRL+ALT+SHIFT+E)
+- Test student offline during session
+
+Phase 3: Performance Testing
+- Test with 20+ students connected
+- Inspect multiple students sequentially
+- Control multiple students sequentially
+- Monitor bandwidth usage
+- Check for memory leaks
+
+Phase 4: Security Testing
+- Verify only ONE control session per instructor
+- Verify student can emergency stop
+- Verify all sessions logged
+- Verify cooperation_issues tracked correctly
+- Test unauthorized access attempts
 
 Phase 5: Demo Preparation
-- Set up demo environment
-- Prepare demo scenario
-- Test demo flow multiple times
-- Prepare backup plan
+- Create demo script with scenarios:
+  1. Normal monitoring (Week 1-5 features)
+  2. Inspection mode demo (watch high-risk student)
+  3. Interactive mode demo (help frozen exam)
+  4. Show audit logs
+- Practice full demo (30 minutes)
+- Prepare backup scenarios
 - Document known limitations
 
 Definition of Done:
-- Live demo works without crashes
-- Violations detected in real time
-- Screenshots captured and viewable
-- Risk scores update correctly
-- Blacklist enforced
-- System stable for 30+ minutes test
-- Can demonstrate to instructor successfully
+- All features work together seamlessly
+- No crashes during any scenario
+- Smooth demo presentation
+- Complete audit trail
+- Professional-grade system ready
+- Impressive 30-minute demo prepared
+
 
 📊 FEATURE SUMMARY BY WEEK
 
@@ -482,7 +704,7 @@ Week 2: Real-time Connection ✅
 Week 3: Basic Monitoring ✅
 Week 4: Blacklist Control ✅
 Week 5: Smart Monitoring + Screenshots 🆕
-Week 6: Integration & Polish ✅
+Week 6: ADVANCED PROCTORING & FINAL INTEGRATION ✅
 
 🎯 CRITICAL SUCCESS FACTORS
 
@@ -494,7 +716,10 @@ For Week 5 Success:
 - UI MUST remain responsive with screenshots
 
 For Week 6 Success:
-- System MUST handle 20+ students
-- Screenshots MUST not degrade performance
-- Demo MUST be reliable and impressive
-- All features MUST work together seamlessly
+- Screen streaming MUST not block monitoring
+- Remote control MUST be accurate and responsive
+- Admin authorization MUST work reliably
+- One-at-a-time enforcement MUST be bulletproof
+- Emergency stop MUST always work
+- All sessions MUST be logged
+- Demo MUST be impressive and smooth

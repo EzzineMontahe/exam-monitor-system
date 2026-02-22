@@ -472,3 +472,141 @@ When implementing features:
 - Always validate screenshot size before transmission.
 - Always link screenshots to triggering events.
 - Always update risk scores after events.
+
+------------------------------------------------------------
+USE CASE 16: INSPECTION MODE (LIVE SCREEN VIEWING)
+------------------------------------------------------------
+
+Actor: Instructor
+
+Trigger:
+- High-risk student detected
+- Instructor wants to verify behavior
+- Suspicious violations need investigation
+
+Flow:
+1. Instructor identifies student to inspect (e.g., Charlie with risk score 65)
+2. Instructor clicks [Watch] button next to Charlie
+3. Frontend sends POST /inspection/start {student_id: Charlie}
+4. Backend validates:
+   - Instructor role confirmed
+   - No other inspection active for this instructor
+5. Backend creates inspection session
+6. Backend sends START_STREAMING WebSocket message to Charlie's desktop
+7. Charlie's desktop:
+   - Starts screen capture (5 FPS)
+   - Optionally shows notification "Being watched"
+   - Captures screen every 200ms
+   - Compresses to JPEG (30% quality)
+   - Converts to base64
+   - Sends SCREEN_FRAME via WebSocket
+8. Backend relays frames to instructor
+9. Instructor's dashboard:
+   - Opens full-screen inspection modal
+   - Renders frames on canvas element
+   - Shows real-time info (active window, apps running)
+   - Disables all other [Watch] buttons (can't inspect others)
+10. Instructor observes Charlie using ChatGPT
+11. Instructor clicks [Screenshot] to capture evidence
+12. Instructor clicks [End Inspection]
+13. Backend stops streaming
+14. Desktop stops capture
+15. Session logged with duration and screenshots
+
+Constraints:
+- Only ONE student viewable at a time per instructor
+- Must close current inspection before starting new one
+- Maximum session duration: 10 minutes (auto-disconnect)
+- Frame rate: 5-10 FPS (configurable)
+- Frame size: < 100 KB per frame
+
+Failure Scenarios:
+- Student offline → Error: "Student not connected"
+- Another inspection active → Error: "Close current inspection first"
+- Network issues → Frames dropped (continue streaming)
+
+Expected Outcome:
+- Instructor observes student's screen live
+- Evidence captured if needed
+- All inspection sessions logged for audit
+
+------------------------------------------------------------
+USE CASE 17: INTERACTIVE MODE (COOPERATIVE REMOTE HELP)
+------------------------------------------------------------
+
+Actor: Instructor
+
+Trigger:
+- Student's exam software frozen
+- Student needs guidance navigating the exam interface
+- Student accidentally closed important window
+- Technical support needed
+
+Flow:
+1. Student (Alice) messages instructor: "My exam froze!"
+2. Instructor clicks [Control] button next to Alice
+3. Reason dialog appears (optional but recommended)
+4. Instructor enters: "Technical assistance - frozen exam"
+5. Frontend sends POST /control/start with reason
+6. Backend validates:
+   - Instructor role
+   - No other control session active for this instructor
+7. Backend creates control session
+8. Backend sends START_CONTROL to Alice's desktop
+9. Alice's desktop:
+   - Shows cooperation banner at top of screen:
+     "Instructor helping - please keep hands free"
+   - Starts streaming screen to instructor (5 FPS)
+   - Listens for remote commands
+10. Instructor's dashboard:
+    - Opens control interface (full-screen)
+    - Shows Alice's screen live
+    - Captures instructor's mouse/keyboard
+    - Disables all other [Control] buttons
+11. Instructor moves mouse on control canvas
+12. Frontend sends MOUSE_MOVE command to backend
+13. Backend relays to Alice's desktop
+14. Alice's desktop moves cursor (shows red cursor)
+15. Instructor navigates to frozen exam.exe
+16. Right-clicks → selects "Restart application"
+17. All actions sent as commands and executed
+18. Alice sees cursor moving and application restarting
+19. Alice keeps hands off mouse (as requested by banner)
+20. Problem resolved - exam software restarted
+21. Instructor clicks [Exit Control]
+22. Backend sends STOP_CONTROL
+23. Alice's desktop:
+    - Removes cooperation banner
+    - Stops streaming
+24. Session logged with all 42 actions performed
+
+What If Student Doesn't Cooperate?:
+- Student moves mouse while instructor is trying to help
+- Desktop can detect interference (optional feature)
+- System can:
+  a) Show reminder: "Please let instructor help"
+  b) Log interference for audit
+  c) Auto-end session if excessive interference
+- Instructor can note in report: "Student uncooperative"
+
+Constraints:
+- Only ONE student controllable at a time per instructor
+- Student MUST be notified (cannot be silent)
+- Maximum session duration: 5 minutes (auto-disconnect)
+- Limited permissions (cannot access personal files)
+- Rate limit: Max 100 commands per second
+- Student can emergency stop: CTRL+ALT+SHIFT+E
+
+Failure Scenarios:
+- Student offline → Error: "Student not connected"
+- Another control active → Error: "Close current session first"
+- Emergency stop triggered → Session ends immediately
+- Student interferes too much → Session can be ended
+
+Expected Outcome:
+- Instructor successfully helps student remotely
+- Technical issue resolved with student cooperation
+- All actions logged in control_actions table
+- Student learned by watching (educational benefit)
+- Audit trail shows complete session history
+- Cooperation (or lack thereof) documented

@@ -387,6 +387,103 @@ Blacklist Update Notification:
 }
 
 ------------------------------------------------------------
+6.4 Inspection Mode WebSocket Messages (Week 6)
+------------------------------------------------------------
+
+Desktop → Backend (Screen Frame):
+{
+  "event_type": "SCREEN_FRAME",
+  "student_id": 123,
+  "frame_data": "BASE64_IMAGE_DATA",
+  "frame_number": 42,
+  "timestamp": "2026-03-15T10:32:16Z"
+}
+
+Backend → Desktop (Start Streaming):
+{
+  "type": "START_STREAMING",
+  "fps": 5,
+  "quality": 30,
+  "notify_student": true
+}
+
+Backend → Desktop (Stop Streaming):
+{
+  "type": "STOP_STREAMING"
+}
+
+Backend → Instructor (Screen Frame):
+{
+  "type": "SCREEN_FRAME",
+  "student_id": 123,
+  "frame_data": "BASE64_IMAGE_DATA",
+  "frame_number": 42,
+  "timestamp": "2026-03-15T10:32:16Z"
+}
+
+------------------------------------------------------------
+6.5 Interactive Mode WebSocket Messages (Week 6)
+------------------------------------------------------------
+
+Backend → Desktop (Start Control):
+{
+  "type": "START_CONTROL",
+  "session_id": "ctrl_xyz789",
+  "instructor_id": 5,
+  "reason": "Technical assistance"
+}
+
+Backend → Desktop (Remote Command):
+{
+  "type": "REMOTE_COMMAND",
+  "command": {
+    "type": "MOUSE_MOVE",
+    "x": 450,
+    "y": 300
+  }
+}
+
+{
+  "type": "REMOTE_COMMAND",
+  "command": {
+    "type": "MOUSE_CLICK",
+    "x": 450,
+    "y": 300,
+    "button": "left"
+  }
+}
+
+{
+  "type": "REMOTE_COMMAND",
+  "command": {
+    "type": "KEY_PRESS",
+    "key": "Enter"
+  }
+}
+
+Backend → Desktop (Stop Control):
+{
+  "type": "STOP_CONTROL"
+}
+
+Desktop → Backend (Command Executed):
+{
+  "event_type": "COMMAND_EXECUTED",
+  "session_id": "ctrl_xyz789",
+  "command_id": 42,
+  "status": "success",
+  "timestamp": "2026-03-15T10:45:24Z"
+}
+
+Desktop → Backend (Emergency Stop):
+{
+  "event_type": "EMERGENCY_STOP",
+  "session_id": "ctrl_xyz789",
+  "reason": "Student pressed CTRL+ALT+SHIFT+E",
+  "timestamp": "2026-03-15T10:47:00Z"
+}
+
+------------------------------------------------------------
 7. ERROR RESPONSE FORMAT
 ------------------------------------------------------------
 
@@ -473,3 +570,152 @@ Migration path:
 - Week 1-4: Basic monitoring only
 - Week 5: Add screenshot support
 - Old events remain compatible
+
+------------------------------------------------------------
+11. INSPECTION MODE ENDPOINTS
+------------------------------------------------------------
+
+POST /inspection/start
+
+Request:
+{
+  "student_id": 123,
+  "notify_student": true
+}
+
+Response:
+{
+  "status": "streaming_started",
+  "session_id": "insp_abc123",
+  "fps": 5,
+  "started_at": "2026-03-15T10:32:15Z"
+}
+
+Errors:
+- 400: Student offline
+- 403: Not instructor role
+- 409: Another inspection already active
+- 404: Student not found
+
+------------------------------------------------------------
+
+POST /inspection/stop
+
+Request:
+{
+  "session_id": "insp_abc123"
+}
+
+Response:
+{
+  "status": "stopped",
+  "duration_seconds": 185,
+  "screenshots_captured": 3,
+  "ended_at": "2026-03-15T10:35:20Z"
+}
+
+------------------------------------------------------------
+
+GET /inspection/history
+
+Query params: student_id (optional)
+
+Response:
+[
+  {
+    "session_id": "insp_abc123",
+    "instructor_id": 5,
+    "student_id": 123,
+    "started_at": "2026-03-15T10:32:15Z",
+    "ended_at": "2026-03-15T10:35:20Z",
+    "duration_seconds": 185,
+    "student_notified": true
+  }
+]
+
+------------------------------------------------------------
+12. INTERACTIVE MODE ENDPOINTS (COOPERATIVE MODEL)
+------------------------------------------------------------
+
+POST /control/start
+
+Request:
+{
+  "student_id": 123,
+  "reason": "Technical assistance - exam software frozen"
+  // NO admin password required
+}
+
+Response:
+{
+  "status": "control_active",
+  "session_id": "ctrl_xyz789",
+  "started_at": "2026-03-15T10:45:00Z",
+  "expires_at": "2026-03-15T10:50:00Z",
+  "cooperative_mode": true  // Indicates student cooperation expected
+}
+
+Errors:
+- 400: Student offline
+- 403: Not instructor role
+- 409: Another control session already active
+- 404: Student not found
+
+------------------------------------------------------------
+
+POST /control/stop
+
+Request:
+{
+  "session_id": "ctrl_xyz789"
+}
+
+Response:
+{
+  "status": "stopped",
+  "duration_seconds": 135,
+  "actions_logged": 42,
+  "ended_at": "2026-03-15T10:47:15Z",
+  "cooperation_issues": false  // true if student interfered
+}
+
+------------------------------------------------------------
+
+GET /control/history
+
+Query params: student_id (optional)
+
+Response:
+[
+  {
+    "session_id": "ctrl_xyz789",
+    "instructor_id": 5,
+    "student_id": 123,
+    "reason": "Technical assistance",
+    "started_at": "2026-03-15T10:45:00Z",
+    "ended_at": "2026-03-15T10:47:15Z",
+    "duration_seconds": 135,
+    "actions_count": 42,
+    "cooperation_issues": false
+  }
+]
+
+------------------------------------------------------------
+
+GET /control/actions/{session_id}
+
+Response:
+[
+  {
+    "action_id": 1,
+    "action_type": "MOUSE_MOVE",
+    "action_data": {"x": 450, "y": 300},
+    "timestamp": "2026-03-15T10:45:23Z"
+  },
+  {
+    "action_id": 2,
+    "action_type": "MOUSE_CLICK",
+    "action_data": {"x": 450, "y": 300, "button": "left"},
+    "timestamp": "2026-03-15T10:45:24Z"
+  }
+]

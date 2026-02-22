@@ -95,6 +95,46 @@ CREATE TABLE student_risk_scores (
     suspicious_window_count INTEGER DEFAULT 0,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Inspection Sessions 
+CREATE TABLE inspection_sessions (
+    id SERIAL PRIMARY KEY,
+    instructor_id INTEGER NOT NULL REFERENCES users(id),
+    student_id INTEGER NOT NULL REFERENCES users(id),
+    started_at TIMESTAMP NOT NULL,
+    ended_at TIMESTAMP,
+    duration_seconds INTEGER,
+    student_notified BOOLEAN DEFAULT TRUE,
+    screenshots_captured INTEGER DEFAULT 0,
+    INDEX idx_instructor (instructor_id),
+    INDEX idx_student (student_id)
+);
+
+-- Control Sessions
+CREATE TABLE control_sessions (
+    id SERIAL PRIMARY KEY,
+    instructor_id INTEGER NOT NULL REFERENCES users(id),
+    student_id INTEGER NOT NULL REFERENCES users(id),
+    reason VARCHAR(500) NOT NULL,
+    authorized_by INTEGER REFERENCES users(id),  -- who approved
+    started_at TIMESTAMP NOT NULL,
+    ended_at TIMESTAMP,
+    duration_seconds INTEGER,
+    student_cooperated BOOLEAN DEFAULT TRUE,  -- track if student interfered
+    INDEX idx_instructor (instructor_id),
+    INDEX idx_student (student_id)
+);
+
+-- Control Actions Log
+CREATE TABLE control_actions (
+    id SERIAL PRIMARY KEY,
+    session_id INTEGER NOT NULL REFERENCES control_sessions(id) ON DELETE CASCADE,
+    action_type VARCHAR(50) NOT NULL, -- MOUSE_MOVE, MOUSE_CLICK, KEY_PRESS
+    action_data JSONB NOT NULL, -- {x: 450, y: 300} or {key: "Enter"}
+    timestamp TIMESTAMP NOT NULL,
+    INDEX idx_session (session_id),
+    INDEX idx_timestamp (timestamp)
+);
 ```
 
 ---

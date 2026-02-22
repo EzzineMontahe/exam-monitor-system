@@ -15,7 +15,7 @@ Failure to follow this structure may cause:
 - ❌ API mismatches
 - ❌ Integration failures
 - ❌ Security vulnerabilities
-- ❌ Week 4+ instability
+- ❌ Week 6 advanced features (Inspection/Control) instability
 
 ---
 
@@ -30,7 +30,7 @@ These core documents define the system:
 | `API_CONTRACT.md` | API endpoints, request/response formats |
 | `USE_CASES.md` | User stories and system behaviors |
 | `WEEK_OBJECTIVES.md` | Weekly goals for each role |
-| `AI_IMPLEMENTATION_GUIDE.md` | **⭐ Code templates, schemas, rules for AI** |
+| `AI_IMPLEMENTATION_GUIDE.md` | Code templates, schemas, rules for AI |
 | `PHASE_0.md` | Initial setup and prerequisites (if applicable) |
 
 > **These documents are the single source of truth.**
@@ -39,10 +39,12 @@ These core documents define the system:
 
 This document contains:
 - Exact code templates (Python, C#, JavaScript)
-- Complete SQL database schemas
+- Complete SQL database schemas (including Week 6 session tables)
 - Decision trees for logic flows
 - Risk score calculation algorithm
 - Screenshot capture implementation
+- Screen streaming implementation (Week 6)
+- Remote control command execution (Week 6)
 - WebSocket connection patterns
 - Validation checklists
 - Common mistakes to avoid
@@ -73,7 +75,7 @@ This document contains:
 - `API_CONTRACT.md`
 - `USE_CASES.md`
 - `WEEK_OBJECTIVES.md`
-- `AI_IMPLEMENTATION_GUIDE.md` ⭐
+- `AI_IMPLEMENTATION_GUIDE.md`
 - `PHASE_0.md` (if applicable)
 
 ### 📝 Then Paste:
@@ -98,7 +100,7 @@ This document contains:
 - `ARCHITECTURE.md`
 - `API_CONTRACT.md`
 - `WEEK_OBJECTIVES.md` (ONLY your role + current week section)
-- `AI_IMPLEMENTATION_GUIDE.md` ⭐
+- `AI_IMPLEMENTATION_GUIDE.md`
 
 ### 📝 Then Paste:
 ```
@@ -119,7 +121,7 @@ This document contains:
 **Before writing code in any session:**
 
 ### 📂 Upload:
-- `AI_IMPLEMENTATION_GUIDE.md` ⭐ **ALWAYS include this first**
+- `AI_IMPLEMENTATION_GUIDE.md` **ALWAYS include this first**
 - Relevant section of `WEEK_OBJECTIVES.md`
 - The exact file(s) you are modifying (e.g., `auth_routes.py`, `WebSocketClient.cs`, `dashboard.js`)
 - Relevant section of `API_CONTRACT.md` (if endpoint-related)
@@ -149,7 +151,7 @@ Tell AI explicitly: *"Follow the code templates in AI_IMPLEMENTATION_GUIDE.md"* 
 **If something fails:**
 
 ### 📂 Upload:
-- `AI_IMPLEMENTATION_GUIDE.md` ⭐ (helps AI understand expected patterns)
+- `AI_IMPLEMENTATION_GUIDE.md` (helps AI understand expected patterns)
 - The file that throws the error
 - The related file(s)
 - The exact error message
@@ -177,7 +179,7 @@ Tell AI explicitly: *"Follow the code templates in AI_IMPLEMENTATION_GUIDE.md"* 
 **At the end of each week:**
 
 ### 📂 Upload:
-- `AI_IMPLEMENTATION_GUIDE.md` ⭐ (for validation checklists)
+- `AI_IMPLEMENTATION_GUIDE.md` (for validation checklists)
 - Main files developed during the week
 
 ### 📝 Then Paste:
@@ -204,6 +206,8 @@ Tell AI explicitly: *"Follow the code templates in AI_IMPLEMENTATION_GUIDE.md"* 
 | Skip weekly planning | Plan before coding |
 | Generate the entire system in one prompt | Generate step-by-step |
 | Use freestyle prompts | Use structured prompts from `/ai-prompts/` |
+| Block monitoring loop with screenshot/streaming | Keep all capture operations async/non-blocking |
+| Add admin password to Interactive Mode | Follow COOPERATIVE model (trust-based) |
 
 ---
 
@@ -300,18 +304,27 @@ Tell AI explicitly: *"Follow the code templates in AI_IMPLEMENTATION_GUIDE.md"* 
 - Always reference `API_CONTRACT.md` for endpoints
 - Update API contract if adding new endpoints
 - Test with Postman/Thunder Client before committing
+- Week 6: Implement session management (Inspection/Control)
+- Week 6: Implement WebSocket frame relay logic
+- Week 6: Enforce one-at-a-time session constraints
 
 ### Desktop Developer
 - Focus on `/desktop` folder
 - Reference `API_CONTRACT.md` for API consumption
 - Follow C# async/await patterns from `ARCHITECTURE.md`
 - Test process monitoring on actual system
+- Week 6: Implement screen streaming (5 FPS, non-blocking)
+- Week 6: Implement remote command execution (COOPERATIVE model)
+- Week 6: Test emergency stop (CTRL+ALT+SHIFT+E)
 
 ### Frontend Developer
 - Focus on `/frontend` folder
 - Reference `API_CONTRACT.md` for API calls
 - Follow React patterns from `ARCHITECTURE.md`
 - Test UI in browser before committing
+- Week 6: Implement live stream viewer (decode/render frames)
+- Week 6: Implement remote control interface (canvas-based)
+- Week 6: Enforce one-at-a-time UI constraints
 
 ---
 
@@ -344,6 +357,7 @@ If you notice inconsistencies between documents:
 |---------|------|---------|
 | 1.0 | Feb 2026 | Initial protocol established |
 | 1.1 | Feb 2026 | Added AI_IMPLEMENTATION_GUIDE.md with code templates |
+| 2.0 | Feb 2026 | Week 6 complete specification (Inspection Mode + Interactive Mode COOPERATIVE model) |
 
 ---
 
@@ -362,7 +376,7 @@ Your project has **two types of documentation**:
 - `API_CONTRACT.md` - Exact API formats
 - `USE_CASES.md` - How it behaves
 - `WEEK_OBJECTIVES.md` - Implementation timeline
-- `AI_IMPLEMENTATION_GUIDE.md` ⭐ - Code templates for AI
+- `AI_IMPLEMENTATION_GUIDE.md` - Code templates for AI
 
 **Read protocol documents once. Reference technical documents constantly.**
 
@@ -375,7 +389,7 @@ Your project has **two types of documentation**:
 - [Project Context](./AI_PROJECT_CONTEXT.md)
 - [Architecture Guide](./ARCHITECTURE.md)
 - [API Contract](./API_CONTRACT.md)
-- [AI Implementation Guide](./AI_IMPLEMENTATION_GUIDE.md) ⭐
+- [AI Implementation Guide](./AI_IMPLEMENTATION_GUIDE.md)
 
 ---
 
@@ -383,4 +397,4 @@ Your project has **two types of documentation**:
 
 ---
 
-*Last Updated: February 2026*
+*Last Updated: February 2026 - v2.0 (Week 6 Complete)*
