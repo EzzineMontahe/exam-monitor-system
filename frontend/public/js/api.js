@@ -76,5 +76,94 @@ function isTokenExpired(token) {
     }
 }
 
+/**
+ * Derive the WebSocket URL from API_BASE_URL.
+ * Converts http(s):// → ws(s):// and appends /ws?token=...
+ * API CONTRACT §6: ws://localhost:8000/ws?token=JWT_TOKEN
+ *
+ * @param {string} token - JWT access token
+ * @returns {string} full WebSocket URL
+ */
+function getWebSocketURL(token) {
+    const wsBase = API_BASE_URL
+        .replace(/^http:/, 'ws:')
+        .replace(/^https:/, 'wss:');
+    return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
+}
+
+// ─── AUTHENTICATED FETCH (Week 3) ───────────────────────────
+
+/**
+ * Generic authenticated fetch wrapper.
+ * - Injects Authorization: Bearer header
+ * - Checks token expiry before request
+ * - Handles 401 → calls onAuthFailure (defaults to redirect)
+ *
+ * @param {string} endpoint - path relative to API_BASE_URL (e.g. '/monitoring/events')
+ * @param {object} [options] - fetch options (method, body, etc.)
+ * @param {object} [config]
+ * @param {function} [config.onAuthFailure] - called on 401/expired token
+ * @returns {Promise<any>} parsed JSON response
+ * @throws {Error} on network or server errors
+ */
+async function fetchWithAuth(endpoint, options = {}, { onAuthFailure = null } = {}) {
+    const token = localStorage.getItem('access_token');
+
+    // Pre-flight: check token exists and is not expired
+    if (!token || isTokenExpired(token)) {
+        if (onAuthFailure) onAuthFailure();
+        throw new Error('Session expired. Please log in again.');
+    }
+
+    const url = `${API_BASE_URL}${endpoint}`;
+    const headers = {
+        'Authorization': `Bearer ${token}`,
+        // Only set Content-Type for requests with a body to avoid unnecessary CORS preflight (C2)
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...options.headers
+    };
+
+    let response;
+    try {
+        response = await fetch(url, { ...options, headers });
+    } catch (networkError) {
+        throw new Error('Unable to connect to server.');
+    }
+
+    // Handle auth failure
+    if (response.status === 401) {
+        if (onAuthFailure) onAuthFailure();
+        throw new Error('Session expired. Please log in again.');
+    }
+
+    if (response.status === 403) {
+        throw new Error('Access forbidden. Instructor role required.');
+    }
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server error (${response.status})`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Fetch monitoring events for a specific student.
+ * API CONTRACT §3: GET /monitoring/events?student_id={id}
+ *
+ * @param {number} studentId
+ * @param {object} [config]
+ * @param {function} [config.onAuthFailure]
+ * @returns {Promise<Array<{id, student_id, event_type, application_name, window_title, timestamp, screenshot_id, risk_score}>>}
+ */
+async function fetchMonitoringEvents(studentId, { onAuthFailure = null } = {}) {
+    return fetchWithAuth(
+        `/monitoring/events?student_id=${encodeURIComponent(studentId)}`,
+        { method: 'GET' },
+        { onAuthFailure }
+    );
+}
+
 // Test backend connection on load
 testBackendConnection();

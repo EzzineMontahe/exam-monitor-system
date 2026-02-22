@@ -10,16 +10,97 @@
     <header class="dashboard-header">
         <h1>Exam Monitoring System</h1>
         <div class="header-actions">
+            <span id="wsStatus" class="ws-status disconnected" title="WebSocket disconnected">
+                <span class="ws-dot"></span>
+                <span class="ws-label">Disconnected</span>
+            </span>
             <span id="userInfo"></span>
             <button id="logoutBtn" class="btn-logout">Logout</button>
         </div>
     </header>
 
     <main class="dashboard-content">
-        <p>Dashboard is ready. Monitoring features will be added in Week 2+.</p>
+        <!-- Connected Students Panel (Week 2) -->
+        <section id="studentListSection" class="panel" aria-live="polite">
+            <div class="panel-header">
+                <h2>Connected Students</h2>
+                <span id="studentCount" class="badge">0</span>
+            </div>
+            <div id="studentListEmpty" class="empty-state">
+                No students connected yet.
+            </div>
+            <table id="studentTable" class="student-table" hidden>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Username</th>
+                        <th>Student ID</th>
+                        <th>Last Seen</th>
+                    </tr>
+                </thead>
+                <tbody id="studentTableBody">
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Live Violations Panel (Week 3) -->
+        <section id="violationsSection" class="panel" aria-live="assertive">
+            <div class="panel-header">
+                <h2>Live Violations</h2>
+                <span id="violationCount" class="badge badge-danger">0</span>
+            </div>
+            <div id="violationsEmpty" class="empty-state">
+                No violations detected.
+            </div>
+            <table id="violationsTable" class="violations-table" hidden>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Student</th>
+                        <th>Type</th>
+                        <th>Application</th>
+                    </tr>
+                </thead>
+                <tbody id="violationsTableBody">
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Violation History Panel (Week 3) — shown on student click -->
+        <section id="historySection" class="panel" hidden>
+            <div class="panel-header">
+                <h2>Violation History — <span id="historyStudentName">-</span></h2>
+                <button id="historyCloseBtn" class="btn-close" title="Close">&times;</button>
+            </div>
+            <div id="historyLoading" class="empty-state" hidden>
+                Loading history...
+            </div>
+            <div id="historyEmpty" class="empty-state" hidden>
+                No recorded violations for this student.
+            </div>
+            <div id="historyError" class="empty-state history-error" hidden>
+                Failed to load history.
+            </div>
+            <table id="historyTable" class="violations-table" hidden>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>Application</th>
+                        <th>Window Title</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                </tbody>
+            </table>
+        </section>
     </main>
 
+    <!-- Toast container (Week 3) -->
+    <div id="toastContainer" class="toast-container"></div>
+
     <script src="js/api.js"></script>
+    <script src="js/websocket.js"></script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>
