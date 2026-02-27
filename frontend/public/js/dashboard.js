@@ -11,14 +11,15 @@ const connectedStudents = new Map();
 const violations = [];
 const MAX_VIOLATIONS = 100;
 
-/** Toast cap — max visible toasts at once */
-const MAX_TOASTS = 5;
-
 /** History request counter to discard stale responses */
 let historyRequestId = 0;
 
 /** Current violation filter */
 let currentViolationFilter = 'ALL';
+
+/** Current violation sort (Week 5) */
+let violationSortField = null; // 'risk_score' or 'timestamp'
+let violationSortAsc = false;  // default descending
 
 /** Suspicious window alerts (Week 5) */
 const suspiciousAlerts = [];
@@ -28,8 +29,15 @@ const MAX_ALERTS = 50;
 let wsStatusEl, wsLabelEl, studentCountEl, studentTableEl, studentTableBodyEl, studentListEmptyEl;
 let violationCountEl, violationsTableEl, violationsTableBodyEl, violationsEmptyEl, violationFilterEl;
 let historySectionEl, historyStudentNameEl, historyLoadingEl, historyEmptyEl, historyErrorEl, historyTableEl, historyTableBodyEl;
-let toastContainerEl;
 let analyticsSectionEl, analyticsEmptyEl, analyticsContentEl, analyticsTableBodyEl, alertCountEl;
+let analyticsSummaryEl, riskDetailSectionEl, riskDetailContentEl, riskDetailLoadingEl, riskDetailNameEl;
+let riskDetailErrorEl, riskDetailScoreEl, riskDetailLevelEl, riskDetailViolationsEl;
+let riskDetailSwitchesEl, riskDetailSuspiciousEl, riskDetailUpdatedEl;
+let riskDetailEventsEl, riskDetailEventsListEl;
+let summaryHighRiskEl, summaryTotalViolationsEl, summarySuspiciousWindowsEl;
+
+/** Prevents rapid-fire risk detail requests (A2 debounce) */
+let riskDetailBusy = false;
 
 /**
  * Route Guard & Initialisation.
@@ -66,7 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
     historyErrorEl = document.getElementById('historyError');
     historyTableEl = document.getElementById('historyTable');
     historyTableBodyEl = document.getElementById('historyTableBody');
-    toastContainerEl = document.getElementById('toastContainer');
 
     // Week 5 DOM references
     violationFilterEl = document.getElementById('violationFilter');
@@ -75,6 +82,23 @@ document.addEventListener('DOMContentLoaded', () => {
     analyticsContentEl = document.getElementById('analyticsContent');
     analyticsTableBodyEl = document.getElementById('analyticsTableBody');
     alertCountEl = document.getElementById('alertCount');
+    analyticsSummaryEl = document.getElementById('analyticsSummary');
+    riskDetailSectionEl = document.getElementById('riskDetailSection');
+    riskDetailContentEl = document.getElementById('riskDetailContent');
+    riskDetailLoadingEl = document.getElementById('riskDetailLoading');
+    riskDetailNameEl = document.getElementById('riskDetailName');
+    riskDetailErrorEl = document.getElementById('riskDetailError');
+    riskDetailScoreEl = document.getElementById('riskDetailScore');
+    riskDetailLevelEl = document.getElementById('riskDetailLevel');
+    riskDetailViolationsEl = document.getElementById('riskDetailViolations');
+    riskDetailSwitchesEl = document.getElementById('riskDetailSwitches');
+    riskDetailSuspiciousEl = document.getElementById('riskDetailSuspicious');
+    riskDetailUpdatedEl = document.getElementById('riskDetailUpdated');
+    riskDetailEventsEl = document.getElementById('riskDetailEvents');
+    riskDetailEventsListEl = document.getElementById('riskDetailEventsList');
+    summaryHighRiskEl = document.getElementById('summaryHighRisk');
+    summaryTotalViolationsEl = document.getElementById('summaryTotalViolations');
+    summarySuspiciousWindowsEl = document.getElementById('summarySuspiciousWindows');
 
     // Display user info
     const userInfo = document.getElementById('userInfo');
@@ -96,6 +120,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ── Week 5: Wire risk detail close button ──
+    const riskDetailCloseBtn = document.getElementById('riskDetailCloseBtn');
+    if (riskDetailCloseBtn) {
+        riskDetailCloseBtn.addEventListener('click', () => {
+            if (riskDetailSectionEl) riskDetailSectionEl.hidden = true;
+        });
+    }
+
     // ── Event delegation for student rows (click to view history) ──
     if (studentTableBodyEl) {
         studentTableBodyEl.addEventListener('click', (e) => {
@@ -105,6 +137,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 const studentId = Number(screenshotBtn.dataset.studentId);
                 handleManualScreenshotRequest(studentId, screenshotBtn);
+                return;
+            }
+            // Risk detail button
+            const detailBtn = e.target.closest('.btn-risk-detail');
+            if (detailBtn) {
+                e.stopPropagation();
+                const studentId = Number(detailBtn.dataset.studentId);
+                const studentName = detailBtn.dataset.studentName;
+                loadStudentRiskDetail(studentId, studentName);
                 return;
             }
             // Row click → history
@@ -137,6 +178,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ── Week 5: Violation sort header ──
+    const violationSortRiskEl = document.getElementById('violationSortRisk');
+    if (violationSortRiskEl) {
+        violationSortRiskEl.addEventListener('click', () => {
+            const field = violationSortRiskEl.dataset.sort;
+            if (violationSortField === field) {
+                violationSortAsc = !violationSortAsc;
+            } else {
+                violationSortField = field;
+                violationSortAsc = false; // default descending for risk
+            }
+            // Clear previous sort indicators before setting new one (M4 future-proof)
+            document.querySelectorAll('.th-sorted').forEach(el => el.classList.remove('th-sorted', 'th-sorted-asc'));
+            violationSortRiskEl.classList.add('th-sorted');
+            violationSortRiskEl.classList.toggle('th-sorted-asc', violationSortAsc);
+            renderViolations();
+        });
+    }
+
     // ── Week 5: Event delegation for screenshot indicators in violations/history ──
     document.addEventListener('click', (e) => {
         const indicator = e.target.closest('.screenshot-indicator, .screenshot-thumb');
@@ -154,10 +214,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Week 5: Initialise screenshots module ──
     initScreenshots();
 
-    // ── Week 5: Fetch initial risk scores ──
-    loadInitialRiskScores();
-
     // ── Week 2: Initialise WebSocket ──
+    // (loadInitialRiskScores is called inside handleConnectedStudentsList after WS connect)
     initWebSocket(token);
 });
 
@@ -243,7 +301,10 @@ function handleConnectedStudentsList(data) {
             status: student.status || 'ONLINE',
             last_seen: student.last_seen || new Date().toISOString(),
             risk_score: null,
-            risk_level: null
+            risk_level: null,
+            violation_count: 0,
+            window_switch_count: 0,
+            suspicious_window_count: 0
         });
     });
 
@@ -274,7 +335,10 @@ function handleStudentStatus(data) {
             status: 'ONLINE',
             last_seen: data.last_seen || new Date().toISOString(),
             risk_score: existing ? existing.risk_score : null,
-            risk_level: existing ? existing.risk_level : null
+            risk_level: existing ? existing.risk_level : null,
+            violation_count: existing ? existing.violation_count : 0,
+            window_switch_count: existing ? existing.window_switch_count : 0,
+            suspicious_window_count: existing ? existing.suspicious_window_count : 0
         });
     } else if (data.status === 'OFFLINE') {
         const existing = connectedStudents.get(id);
@@ -288,7 +352,10 @@ function handleStudentStatus(data) {
                 status: 'OFFLINE',
                 last_seen: data.last_seen || new Date().toISOString(),
                 risk_score: null,
-                risk_level: null
+                risk_level: null,
+                violation_count: 0,
+                window_switch_count: 0,
+                suspicious_window_count: 0
             });
         }
     }
@@ -312,6 +379,9 @@ async function loadInitialRiskScores() {
             if (existing) {
                 existing.risk_score = s.risk_score;
                 existing.risk_level = s.risk_level;
+                existing.violation_count = s.violation_count ?? 0;
+                existing.window_switch_count = s.window_switch_count ?? 0;
+                existing.suspicious_window_count = s.suspicious_window_count ?? 0;
             } else {
                 // Student has a risk score but may not be connected yet — store it
                 connectedStudents.set(id, {
@@ -320,7 +390,10 @@ async function loadInitialRiskScores() {
                     status: 'OFFLINE',
                     last_seen: s.last_updated || new Date().toISOString(),
                     risk_score: s.risk_score,
-                    risk_level: s.risk_level
+                    risk_level: s.risk_level,
+                    violation_count: s.violation_count ?? 0,
+                    window_switch_count: s.window_switch_count ?? 0,
+                    suspicious_window_count: s.suspicious_window_count ?? 0
                 });
             }
         });
@@ -352,11 +425,91 @@ function handleRiskScoreUpdate(data) {
             status: 'ONLINE',
             last_seen: new Date().toISOString(),
             risk_score: data.risk_score,
-            risk_level: data.risk_level
+            risk_level: data.risk_level,
+            violation_count: 0,
+            window_switch_count: 0,
+            suspicious_window_count: 0
         });
     }
 
     renderStudentList();
+}
+
+// ─── STUDENT RISK DETAIL VIEW (Week 5) ──────────────────────
+
+/**
+ * Fetch and display detailed risk information for a specific student.
+ * Uses GET /monitoring/risk-scores/{student_id} (API_CONTRACT §4)
+ * @param {number} studentId
+ * @param {string} studentName
+ */
+async function loadStudentRiskDetail(studentId, studentName) {
+    if (!riskDetailSectionEl) return;
+    if (riskDetailBusy) return; // debounce rapid clicks (A2)
+    riskDetailBusy = true;
+
+    // Show panel with loading state
+    riskDetailSectionEl.hidden = false;
+    riskDetailSectionEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (riskDetailNameEl) riskDetailNameEl.textContent = studentName;
+    if (riskDetailLoadingEl) riskDetailLoadingEl.hidden = false;
+    if (riskDetailContentEl) riskDetailContentEl.hidden = true;
+    if (riskDetailErrorEl) riskDetailErrorEl.hidden = true;
+
+    try {
+        const detail = await fetchStudentRiskScore(studentId, { onAuthFailure: logout });
+
+        if (riskDetailLoadingEl) riskDetailLoadingEl.hidden = true;
+        if (riskDetailContentEl) riskDetailContentEl.hidden = false;
+
+        // Populate score cards (DOM refs cached at DOMContentLoaded)
+        if (riskDetailScoreEl) riskDetailScoreEl.textContent = detail.risk_score ?? '—';
+        if (riskDetailLevelEl) {
+            riskDetailLevelEl.textContent = detail.risk_level || '—';
+            riskDetailLevelEl.className = 'risk-detail-value';
+            if (detail.risk_level === 'HIGH') riskDetailLevelEl.classList.add('risk-detail-high');
+            else if (detail.risk_level === 'MEDIUM') riskDetailLevelEl.classList.add('risk-detail-medium');
+            else if (detail.risk_level === 'LOW') riskDetailLevelEl.classList.add('risk-detail-low');
+        }
+        if (riskDetailViolationsEl) riskDetailViolationsEl.textContent = detail.violation_count ?? 0;
+        if (riskDetailSwitchesEl) riskDetailSwitchesEl.textContent = detail.window_switch_count ?? 0;
+        if (riskDetailSuspiciousEl) riskDetailSuspiciousEl.textContent = detail.suspicious_window_count ?? 0;
+        if (riskDetailUpdatedEl) riskDetailUpdatedEl.textContent = detail.last_updated ? formatTimestamp(detail.last_updated) : '—';
+
+        // Populate recent events (DOM refs cached at DOMContentLoaded)
+        if (riskDetailEventsListEl && riskDetailEventsEl) {
+            if (detail.recent_events && detail.recent_events.length > 0) {
+                riskDetailEventsEl.hidden = false;
+                riskDetailEventsListEl.innerHTML = detail.recent_events.map(ev => {
+                    const typeBadge = getViolationTypeBadge(ev.event_type);
+                    const time = formatTimestamp(ev.timestamp);
+                    return `<div class="risk-detail-event">${typeBadge} <span class="risk-detail-event-time">${time}</span></div>`;
+                }).join('');
+            } else {
+                riskDetailEventsEl.hidden = true;
+            }
+        }
+
+        // Also update the cached student data with fresh values
+        const existing = connectedStudents.get(studentId);
+        if (existing) {
+            existing.risk_score = detail.risk_score;
+            existing.risk_level = detail.risk_level;
+            existing.violation_count = detail.violation_count ?? 0;
+            existing.window_switch_count = detail.window_switch_count ?? 0;
+            existing.suspicious_window_count = detail.suspicious_window_count ?? 0;
+        }
+
+    } catch (err) {
+        console.error('[Dashboard] Failed to load student risk detail:', err);
+        if (riskDetailLoadingEl) riskDetailLoadingEl.hidden = true;
+        if (riskDetailErrorEl) {
+            riskDetailErrorEl.hidden = false;
+            riskDetailErrorEl.textContent = err.message || 'Failed to load risk details.';
+        }
+    } finally {
+        riskDetailBusy = false;
+    }
 }
 
 // ─── SUSPICIOUS WINDOW ALERTS (Week 5) ──────────────────────
@@ -389,11 +542,15 @@ function handleSuspiciousWindow(data) {
 
 /**
  * Render the behavior analytics / suspicious alerts panel.
+ * Also updates the analytics summary bar (Week 5 C3).
  */
 function renderAnalytics() {
     if (!analyticsTableBodyEl) return;
 
     if (alertCountEl) alertCountEl.textContent = suspiciousAlerts.length;
+
+    // Single authoritative call site for analytics summary (I4)
+    updateAnalyticsSummary();
 
     if (suspiciousAlerts.length === 0) {
         if (analyticsEmptyEl) analyticsEmptyEl.hidden = false;
@@ -420,6 +577,25 @@ function renderAnalytics() {
     }).join('');
 }
 
+/**
+ * Update the analytics summary bar with aggregated counts.
+ * Counts high-risk students, total violations, and suspicious windows from student data.
+ */
+function updateAnalyticsSummary() {
+    const highRiskCount = [...connectedStudents.values()].filter(s => (s.risk_score ?? 0) > 60).length;
+    const totalViolations = violations.length;
+    const suspiciousWindowCount = suspiciousAlerts.length;
+
+    if (summaryHighRiskEl) summaryHighRiskEl.textContent = highRiskCount;
+    if (summaryTotalViolationsEl) summaryTotalViolationsEl.textContent = totalViolations;
+    if (summarySuspiciousWindowsEl) summarySuspiciousWindowsEl.textContent = suspiciousWindowCount;
+
+    // Show summary bar if there's any data
+    if (analyticsSummaryEl) {
+        analyticsSummaryEl.hidden = (highRiskCount === 0 && totalViolations === 0 && suspiciousWindowCount === 0);
+    }
+}
+
 // ─── STUDENT LIST RENDERING ─────────────────────────────────
 
 /**
@@ -433,6 +609,9 @@ function renderStudentList() {
     if (studentCountEl) {
         studentCountEl.textContent = onlineCount;
     }
+
+    // Analytics summary is updated when data changes (new violation, risk score, suspicious alert)
+    updateAnalyticsSummary();
 
     // Show/hide empty state vs table
     if (connectedStudents.size === 0) {
@@ -482,6 +661,11 @@ function renderStudentList() {
             ? `<button class="btn-screenshot" data-student-id="${student.student_id}" title="Request screenshot">📷 Request</button>`
             : '<span class="text-muted">—</span>';
 
+        // Risk detail button (only show if student has risk data)
+        const detailBtn = student.risk_score !== null
+            ? `<button class="btn-risk-detail" data-student-id="${student.student_id}" data-student-name="${escapeHtml(student.username)}" title="View risk details">📊 Detail</button>`
+            : '';
+
         return `
             <tr class="${rowClass}" data-student-id="${student.student_id}" data-student-name="${escapeHtml(student.username)}" role="button" tabindex="0" title="Click to view violation history">
                 <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
@@ -489,7 +673,7 @@ function renderStudentList() {
                 <td>${student.student_id}</td>
                 <td>${riskBadge}</td>
                 <td>${lastSeen}</td>
-                <td>${screenshotBtn}</td>
+                <td>${screenshotBtn} ${detailBtn}</td>
             </tr>
         `;
     }).join('');
@@ -559,9 +743,9 @@ function handleNewViolation(data) {
         event_type: data.event_type,
         application_name: data.application_name || '—',
         window_title: data.window_title || null,
-        duration_seconds: data.duration_seconds || null,
+        duration_seconds: data.duration_seconds ?? null,
         timestamp: data.timestamp || new Date().toISOString(),
-        screenshot_id: data.screenshot_id || null,
+        screenshot_id: data.screenshot_id ?? null,
         risk_score: data.risk_score ?? null
     };
 
@@ -572,6 +756,7 @@ function handleNewViolation(data) {
     }
 
     renderViolations();
+    updateAnalyticsSummary();
     showViolationToast(violation);
     updatePageTitle();
 }
@@ -583,9 +768,18 @@ function renderViolations() {
     if (!violationsTableBodyEl) return;
 
     // Apply filter
-    const filtered = currentViolationFilter === 'ALL'
-        ? violations
+    let filtered = currentViolationFilter === 'ALL'
+        ? [...violations]
         : violations.filter(v => v.event_type === currentViolationFilter);
+
+    // Apply sort (Week 5)
+    if (violationSortField) {
+        filtered.sort((a, b) => {
+            const aVal = a[violationSortField] ?? 0;
+            const bVal = b[violationSortField] ?? 0;
+            return violationSortAsc ? aVal - bVal : bVal - aVal;
+        });
+    }
 
     // Update count badge (always show total)
     if (violationCountEl) {
@@ -608,10 +802,12 @@ function renderViolations() {
     violationsTableBodyEl.innerHTML = filtered.map((v, index) => {
         const typeBadge = getViolationTypeBadge(v.event_type);
         const time = formatTimestamp(v.timestamp);
-        const isNew = index === 0 ? 'violation-new' : '';
+        // Only flash newest row when not sorted (sort changes row order)
+        const isNew = (!violationSortField && index === 0) ? 'violation-new' : '';
         const windowTitle = v.window_title ? escapeHtml(v.window_title) : '—';
         const riskBadge = renderRiskBadge(v.risk_score);
         const screenshotCell = renderScreenshotCell(v.screenshot_id);
+        const duration = formatDuration(v.duration_seconds);
 
         return `
             <tr class="${isNew}" data-event-id="${v.event_id || ''}">
@@ -620,6 +816,7 @@ function renderViolations() {
                 <td>${typeBadge}</td>
                 <td>${escapeHtml(v.application_name)}</td>
                 <td class="cell-truncate" title="${windowTitle}">${windowTitle}</td>
+                <td>${duration}</td>
                 <td>${riskBadge}</td>
                 <td class="screenshot-cell">${screenshotCell}</td>
             </tr>
@@ -656,6 +853,7 @@ async function loadViolationHistory(studentId, studentName) {
     const currentRequestId = ++historyRequestId;
 
     historySectionEl.hidden = false;
+    historySectionEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     historyStudentNameEl.textContent = studentName;
 
     historyLoadingEl.hidden = false;
@@ -682,12 +880,14 @@ async function loadViolationHistory(studentId, studentName) {
             const windowTitle = ev.window_title ? escapeHtml(ev.window_title) : '—';
             const appName = ev.application_name ? escapeHtml(ev.application_name) : '—';
             const screenshotCell = renderScreenshotCell(ev.screenshot_id);
+            const duration = formatDuration(ev.duration_seconds);
             return `
                 <tr>
                     <td>${time}</td>
                     <td>${typeBadge}</td>
                     <td>${appName}</td>
                     <td class="cell-truncate" title="${windowTitle}">${windowTitle}</td>
+                    <td>${duration}</td>
                     <td class="screenshot-cell">${screenshotCell}</td>
                 </tr>
             `;
@@ -741,6 +941,21 @@ function markStudentsStale() {
         }
     });
     renderStudentList();
+}
+
+/**
+ * Format seconds into a human-readable duration string.
+ * @param {number|null} seconds
+ * @returns {string} e.g. '45s', '2m 15s', '—'
+ */
+function formatDuration(seconds) {
+    if (seconds === null || seconds === undefined) return '—';
+    seconds = Math.round(seconds);
+    if (seconds <= 0) return '—';
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
 }
 
 /**

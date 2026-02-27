@@ -822,24 +822,165 @@ tr.student-high-risk:hover {
     cursor: pointer;
 }
 
-.sortable {
-    cursor: pointer;
-    user-select: none;
-}
-
-.sortable:hover {
-    color: #1a73e8;
-}
-
-.sortable::after {
-    content: ' ↕';
-    font-size: 0.65rem;
-    opacity: 0.5;
-}
-
 /* ========== ANALYTICS PANEL (Week 5) ========== */
 .badge-warning {
     background-color: #f59e0b;
+}
+
+/* ========== ANALYTICS SUMMARY BAR (Week 5) ========== */
+.analytics-summary {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    background-color: #f9fafb;
+}
+
+.analytics-summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    padding: 0.5rem;
+    border-radius: 6px;
+    background-color: #fff;
+    border: 1px solid #e5e7eb;
+}
+
+.analytics-summary-count {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #374151;
+}
+
+.analytics-summary-label {
+    font-size: 0.7rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-top: 0.15rem;
+}
+
+/* ========== SORTABLE TABLE HEADERS (Week 5) ========== */
+.th-sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s;
+}
+
+.th-sortable:hover {
+    background-color: #eef2ff;
+}
+
+.sort-arrow::after {
+    content: ' \u2195';
+    font-size: 0.65rem;
+    opacity: 0.4;
+}
+
+.th-sorted .sort-arrow::after {
+    content: ' \u25BC';
+    opacity: 1;
+    color: #1a73e8;
+}
+
+.th-sorted.th-sorted-asc .sort-arrow::after {
+    content: ' \u25B2';
+}
+
+/* ========== RISK DETAIL PANEL (Week 5) ========== */
+.risk-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    padding: 1.25rem;
+}
+
+.risk-detail-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+}
+
+.risk-detail-label {
+    font-size: 0.7rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.25rem;
+}
+
+.risk-detail-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #374151;
+}
+
+.risk-detail-high {
+    color: #dc2626;
+}
+
+.risk-detail-medium {
+    color: #d97706;
+}
+
+.risk-detail-low {
+    color: #166534;
+}
+
+.risk-detail-events {
+    padding: 0 1.25rem 1.25rem;
+}
+
+.risk-detail-events h4 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.risk-detail-events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.risk-detail-event {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    background-color: #f9fafb;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.risk-detail-event-time {
+    color: #6b7280;
+    font-size: 0.75rem;
+}
+
+/* Risk Detail Button */
+.btn-risk-detail {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    background-color: #f9fafb;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s;
+}
+
+.btn-risk-detail:hover {
+    background-color: #eef2ff;
+    border-color: #bfdbfe;
+    color: #1a73e8;
 }
 
 /* ========== TOAST VARIANTS (Week 5) ========== */
@@ -898,5 +1039,17 @@ tr.student-high-risk:hover {
 
     .modal-content {
         max-width: 95vw;
+    }
+
+    .risk-detail-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .analytics-summary {
+        flex-wrap: wrap;
+    }
+
+    .analytics-summary-item {
+        min-width: 80px;
     }
 }

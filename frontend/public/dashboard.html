@@ -51,6 +51,20 @@
                 <h2>Suspicious Activity</h2>
                 <span id="alertCount" class="badge badge-warning">0</span>
             </div>
+            <div id="analyticsSummary" class="analytics-summary" hidden>
+                <div class="analytics-summary-item">
+                    <span class="analytics-summary-count" id="summaryHighRisk">0</span>
+                    <span class="analytics-summary-label">High Risk Students</span>
+                </div>
+                <div class="analytics-summary-item">
+                    <span class="analytics-summary-count" id="summaryTotalViolations">0</span>
+                    <span class="analytics-summary-label">Total Violations</span>
+                </div>
+                <div class="analytics-summary-item">
+                    <span class="analytics-summary-count" id="summarySuspiciousWindows">0</span>
+                    <span class="analytics-summary-label">Suspicious Windows</span>
+                </div>
+            </div>
             <div id="analyticsEmpty" class="empty-state">
                 No suspicious activity detected.
             </div>
@@ -96,7 +110,8 @@
                         <th>Type</th>
                         <th>Application</th>
                         <th>Window Title</th>
-                        <th>Risk</th>
+                        <th>Duration</th>
+                        <th class="th-sortable" data-sort="risk_score" id="violationSortRisk" title="Click to sort by risk score">Risk <span class="sort-arrow"></span></th>
                         <th>Screenshot</th>
                     </tr>
                 </thead>
@@ -127,12 +142,59 @@
                         <th>Type</th>
                         <th>Application</th>
                         <th>Window Title</th>
+                        <th>Duration</th>
                         <th>Screenshot</th>
                     </tr>
                 </thead>
                 <tbody id="historyTableBody">
                 </tbody>
             </table>
+        </section>
+
+        <!-- Student Risk Detail Panel (Week 5) — shown on demand -->
+        <section id="riskDetailSection" class="panel" hidden>
+            <div class="panel-header">
+                <h2>Risk Details — <span id="riskDetailName">-</span></h2>
+                <button id="riskDetailCloseBtn" class="btn-close" title="Close">&times;</button>
+            </div>
+            <div id="riskDetailLoading" class="empty-state" hidden>
+                Loading risk details...
+            </div>
+            <div id="riskDetailError" class="empty-state history-error" hidden>
+                Failed to load risk details.
+            </div>
+            <div id="riskDetailContent" hidden>
+                <div class="risk-detail-grid">
+                    <div class="risk-detail-card">
+                        <span class="risk-detail-label">Risk Score</span>
+                        <span id="riskDetailScore" class="risk-detail-value">—</span>
+                    </div>
+                    <div class="risk-detail-card">
+                        <span class="risk-detail-label">Risk Level</span>
+                        <span id="riskDetailLevel" class="risk-detail-value">—</span>
+                    </div>
+                    <div class="risk-detail-card">
+                        <span class="risk-detail-label">Violations</span>
+                        <span id="riskDetailViolations" class="risk-detail-value">0</span>
+                    </div>
+                    <div class="risk-detail-card">
+                        <span class="risk-detail-label">Window Switches</span>
+                        <span id="riskDetailSwitches" class="risk-detail-value">0</span>
+                    </div>
+                    <div class="risk-detail-card">
+                        <span class="risk-detail-label">Suspicious Windows</span>
+                        <span id="riskDetailSuspicious" class="risk-detail-value">0</span>
+                    </div>
+                    <div class="risk-detail-card">
+                        <span class="risk-detail-label">Last Updated</span>
+                        <span id="riskDetailUpdated" class="risk-detail-value">—</span>
+                    </div>
+                </div>
+                <div id="riskDetailEvents" class="risk-detail-events">
+                    <h4>Recent Events</h4>
+                    <div id="riskDetailEventsList" class="risk-detail-events-list"></div>
+                </div>
+            </div>
         </section>
 
         <!-- Blacklist Management Panel (Week 4) -->

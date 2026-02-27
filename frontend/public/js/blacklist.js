@@ -164,10 +164,10 @@ async function handleBlacklistDelete(itemId, itemName) {
 
     try {
         await deleteBlacklistItem(itemId, { onAuthFailure: logout });
-        showBlacklistFeedback(`"${itemName}" removed from blacklist.`, 'success');
 
-        // Refresh list
+        // Refresh list, then show feedback (loadBlacklist no longer hides feedback)
         await loadBlacklist();
+        showBlacklistFeedback(`"${itemName}" removed from blacklist.`, 'success');
     } catch (err) {
         console.error('[Blacklist] Delete failed:', err);
         // Restore row opacity

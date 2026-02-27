@@ -3,11 +3,35 @@
 
 // ─── STATE ──────────────────────────────────────────────────
 
-/** Cache of loaded screenshot blob URLs: Map<screenshot_id, blobURL> */
+/** Cache of loaded screenshot blob URLs: Map<cacheKey, blobURL> */
 const screenshotCache = new Map();
+
+/** Max entries in screenshot cache before LRU eviction */
+const MAX_SCREENSHOT_CACHE = 50;
 
 /** Tracks pending manual screenshot requests: Map<student_id, request_id> */
 const pendingScreenshotRequests = new Map();
+
+/**
+ * Store a blob URL in the screenshot cache with LRU eviction.
+ * Revokes the oldest blob URL when cache exceeds MAX_SCREENSHOT_CACHE.
+ * @param {string} key
+ * @param {string} blobUrl
+ */
+function screenshotCacheSet(key, blobUrl) {
+    // If key already exists, delete so it moves to end (newest)
+    if (screenshotCache.has(key)) {
+        URL.revokeObjectURL(screenshotCache.get(key));
+        screenshotCache.delete(key);
+    }
+    // Evict oldest if at capacity
+    while (screenshotCache.size >= MAX_SCREENSHOT_CACHE) {
+        const oldest = screenshotCache.keys().next().value;
+        URL.revokeObjectURL(screenshotCache.get(oldest));
+        screenshotCache.delete(oldest);
+    }
+    screenshotCache.set(key, blobUrl);
+}
 
 // ─── DOM REFERENCES ─────────────────────────────────────────
 let modalOverlayEl, modalImageEl, modalLoadingEl, modalErrorEl, modalTitleEl, modalMetaEl, modalCloseBtn;
@@ -59,7 +83,7 @@ async function getScreenshotThumbnail(screenshotId) {
 
     const url = getScreenshotThumbnailURL(screenshotId);
     const blobUrl = await fetchImageAsBlob(url, { onAuthFailure: logout });
-    screenshotCache.set(cacheKey, blobUrl);
+    screenshotCacheSet(cacheKey, blobUrl);
     return blobUrl;
 }
 
@@ -130,7 +154,7 @@ async function openScreenshotModal(screenshotId, meta = {}) {
     try {
         const url = getScreenshotDownloadURL(screenshotId);
         const blobUrl = await fetchImageAsBlob(url, { onAuthFailure: logout });
-        screenshotCache.set(cacheKey, blobUrl);
+        screenshotCacheSet(cacheKey, blobUrl);
         showModalImage(blobUrl);
     } catch (err) {
         console.error('[Screenshots] Failed to load full image:', err);
@@ -187,12 +211,16 @@ async function handleManualScreenshotRequest(studentId, btn) {
         showToast(`Screenshot requested for Student ${studentId}.`, 'info');
 
         // Timeout: clear pending after 30 seconds
+        // Re-query DOM inside callback since renderStudentList() may have replaced the original btn
         setTimeout(() => {
             if (pendingScreenshotRequests.has(studentId)) {
                 pendingScreenshotRequests.delete(studentId);
-                btn.disabled = false;
-                btn.classList.remove('loading');
-                btn.textContent = originalText;
+                const currentBtn = document.querySelector(`.btn-screenshot[data-student-id="${studentId}"]`);
+                if (currentBtn) {
+                    currentBtn.disabled = false;
+                    currentBtn.classList.remove('loading');
+                    currentBtn.textContent = originalText;
+                }
             }
         }, 30000);
 
