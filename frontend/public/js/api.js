@@ -49,7 +49,7 @@ async function login(username, password) {
             throw new Error('Access forbidden.');
         }
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server error (${response.status})`);
+        throw new Error(errorData.detail || errorData.error || `Server error (${response.status})`);
     }
 
     const data = await response.json();
@@ -142,7 +142,7 @@ async function fetchWithAuth(endpoint, options = {}, { onAuthFailure = null } = 
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server error (${response.status})`);
+        throw new Error(errorData.detail || errorData.error || `Server error (${response.status})`);
     }
 
     return response.json();
@@ -163,6 +163,199 @@ async function fetchMonitoringEvents(studentId, { onAuthFailure = null } = {}) {
         { method: 'GET' },
         { onAuthFailure }
     );
+}
+
+// ─── BLACKLIST API (Week 4) ─────────────────────────────────
+
+/**
+ * Fetch all blacklist items.
+ * HANDOFF §2: GET /blacklist → [{id, name, type}]
+ *
+ * @param {object} [config]
+ * @param {function} [config.onAuthFailure]
+ * @returns {Promise<Array<{id: number, name: string, type: string}>>}
+ */
+async function fetchBlacklist({ onAuthFailure = null } = {}) {
+    return fetchWithAuth('/blacklist', { method: 'GET' }, { onAuthFailure });
+}
+
+/**
+ * Add a blacklist item.
+ * HANDOFF §2: POST /blacklist {name, type} → {message}
+ * Errors: 409 duplicate, 403 not instructor
+ *
+ * @param {string} name - e.g. "chrome.exe"
+ * @param {string} type - "APPLICATION" or "WEBSITE"
+ * @param {object} [config]
+ * @param {function} [config.onAuthFailure]
+ * @returns {Promise<{message: string}>}
+ */
+async function addBlacklistItem(name, type, { onAuthFailure = null } = {}) {
+    return fetchWithAuth(
+        '/blacklist',
+        { method: 'POST', body: JSON.stringify({ name, type }) },
+        { onAuthFailure }
+    );
+}
+
+/**
+ * Delete a blacklist item.
+ * HANDOFF §2: DELETE /blacklist/{item_id} → {message}
+ * Errors: 404 not found, 403 not instructor
+ *
+ * @param {number} itemId
+ * @param {object} [config]
+ * @param {function} [config.onAuthFailure]
+ * @returns {Promise<{message: string}>}
+ */
+async function deleteBlacklistItem(itemId, { onAuthFailure = null } = {}) {
+    return fetchWithAuth(
+        `/blacklist/${encodeURIComponent(itemId)}`,
+        { method: 'DELETE' },
+        { onAuthFailure }
+    );
+}
+
+// ─── RISK SCORES API (Week 5) ───────────────────────────────
+
+/**
+ * Fetch risk scores for all students.
+ * HANDOFF §4: GET /monitoring/risk-scores
+ *
+ * @param {object} [config]
+ * @param {function} [config.onAuthFailure]
+ * @returns {Promise<Array<{student_id, username, risk_score, risk_level, violation_count, window_switch_count, suspicious_window_count, last_updated}>>}
+ */
+async function fetchRiskScores({ onAuthFailure = null } = {}) {
+    return fetchWithAuth('/monitoring/risk-scores', { method: 'GET' }, { onAuthFailure });
+}
+
+/**
+ * Fetch risk score for a specific student.
+ * HANDOFF §4: GET /monitoring/risk-scores/{student_id}
+ *
+ * @param {number} studentId
+ * @param {object} [config]
+ * @param {function} [config.onAuthFailure]
+ * @returns {Promise<object>}
+ */
+async function fetchStudentRiskScore(studentId, { onAuthFailure = null } = {}) {
+    return fetchWithAuth(
+        `/monitoring/risk-scores/${encodeURIComponent(studentId)}`,
+        { method: 'GET' },
+        { onAuthFailure }
+    );
+}
+
+// ─── SCREENSHOTS API (Week 5) ───────────────────────────────
+
+/**
+ * Fetch screenshot metadata.
+ * HANDOFF §5: GET /screenshots/{screenshot_id}
+ *
+ * @param {number} screenshotId
+ * @param {object} [config]
+ * @param {function} [config.onAuthFailure]
+ * @returns {Promise<{id, student_id, event_id, trigger_type, file_url, captured_at, thumbnail_url}>}
+ */
+async function fetchScreenshotMeta(screenshotId, { onAuthFailure = null } = {}) {
+    return fetchWithAuth(
+        `/screenshots/${encodeURIComponent(screenshotId)}`,
+        { method: 'GET' },
+        { onAuthFailure }
+    );
+}
+
+/**
+ * Get the full URL for downloading a screenshot.
+ * HANDOFF §5: GET /screenshots/download/{screenshot_id} → binary JPEG
+ * @param {number} screenshotId
+ * @returns {string}
+ */
+function getScreenshotDownloadURL(screenshotId) {
+    return `${API_BASE_URL}/screenshots/download/${screenshotId}`;
+}
+
+/**
+ * Get the full URL for a screenshot thumbnail.
+ * HANDOFF §5: GET /screenshots/thumbnail/{screenshot_id} → binary JPEG
+ * @param {number} screenshotId
+ * @returns {string}
+ */
+function getScreenshotThumbnailURL(screenshotId) {
+    return `${API_BASE_URL}/screenshots/thumbnail/${screenshotId}`;
+}
+
+/**
+ * Fetch all screenshots for a student.
+ * HANDOFF §5: GET /screenshots/student/{student_id}
+ *
+ * @param {number} studentId
+ * @param {object} [config]
+ * @param {function} [config.onAuthFailure]
+ * @returns {Promise<Array<{id, event_id, trigger_type, file_url, captured_at, thumbnail_url}>>}
+ */
+async function fetchStudentScreenshots(studentId, { onAuthFailure = null } = {}) {
+    return fetchWithAuth(
+        `/screenshots/student/${encodeURIComponent(studentId)}`,
+        { method: 'GET' },
+        { onAuthFailure }
+    );
+}
+
+/**
+ * Request a manual screenshot from a student.
+ * HANDOFF §5: POST /screenshots/request {student_id} → {message, request_id}
+ * Errors: 400 student not connected, 403 not instructor, 429 rate limit
+ *
+ * @param {number} studentId
+ * @param {object} [config]
+ * @param {function} [config.onAuthFailure]
+ * @returns {Promise<{message: string, request_id: string}>}
+ */
+async function requestScreenshot(studentId, { onAuthFailure = null } = {}) {
+    return fetchWithAuth(
+        '/screenshots/request',
+        { method: 'POST', body: JSON.stringify({ student_id: studentId }) },
+        { onAuthFailure }
+    );
+}
+
+/**
+ * Fetch an authenticated image as a blob URL (for thumbnails/full screenshots).
+ * Uses Authorization header so JWT is not exposed in the URL.
+ *
+ * @param {string} url - full URL to the image endpoint
+ * @param {object} [config]
+ * @param {function} [config.onAuthFailure]
+ * @returns {Promise<string>} object URL for the image blob
+ */
+async function fetchImageAsBlob(url, { onAuthFailure = null } = {}) {
+    const token = localStorage.getItem('access_token');
+    if (!token || isTokenExpired(token)) {
+        if (onAuthFailure) onAuthFailure();
+        throw new Error('Session expired. Please log in again.');
+    }
+
+    let response;
+    try {
+        response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+    } catch (networkError) {
+        throw new Error('Unable to connect to server.');
+    }
+
+    if (response.status === 401) {
+        if (onAuthFailure) onAuthFailure();
+        throw new Error('Session expired. Please log in again.');
+    }
+    if (!response.ok) {
+        throw new Error(`Failed to load image (${response.status})`);
+    }
+
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
 }
 
 // Test backend connection on load

@@ -20,7 +20,7 @@
     </header>
 
     <main class="dashboard-content">
-        <!-- Connected Students Panel (Week 2) -->
+        <!-- Connected Students Panel (Week 2 + Week 5: risk scores, screenshot request) -->
         <section id="studentListSection" class="panel" aria-live="polite">
             <div class="panel-header">
                 <h2>Connected Students</h2>
@@ -35,7 +35,9 @@
                         <th>Status</th>
                         <th>Username</th>
                         <th>Student ID</th>
+                        <th>Risk</th>
                         <th>Last Seen</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="studentTableBody">
@@ -43,11 +45,45 @@
             </table>
         </section>
 
-        <!-- Live Violations Panel (Week 3) -->
+        <!-- Behavior Analytics Panel (Week 5) -->
+        <section id="analyticsSection" class="panel">
+            <div class="panel-header">
+                <h2>Suspicious Activity</h2>
+                <span id="alertCount" class="badge badge-warning">0</span>
+            </div>
+            <div id="analyticsEmpty" class="empty-state">
+                No suspicious activity detected.
+            </div>
+            <div id="analyticsContent" hidden>
+                <table id="analyticsTable" class="violations-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Student</th>
+                            <th>Window Title</th>
+                            <th>Application</th>
+                            <th>Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody id="analyticsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Live Violations Panel (Week 3 + Week 5: enhanced columns, filtering) -->
         <section id="violationsSection" class="panel" aria-live="assertive">
             <div class="panel-header">
                 <h2>Live Violations</h2>
-                <span id="violationCount" class="badge badge-danger">0</span>
+                <div class="panel-header-actions">
+                    <select id="violationFilter" class="filter-select" title="Filter by type">
+                        <option value="ALL">All Types</option>
+                        <option value="BLACKLIST_APP">Blacklisted App</option>
+                        <option value="WINDOW_FOCUS">Window Focus</option>
+                        <option value="SUSPICIOUS_BEHAVIOR">Suspicious</option>
+                    </select>
+                    <span id="violationCount" class="badge badge-danger">0</span>
+                </div>
             </div>
             <div id="violationsEmpty" class="empty-state">
                 No violations detected.
@@ -59,6 +95,9 @@
                         <th>Student</th>
                         <th>Type</th>
                         <th>Application</th>
+                        <th>Window Title</th>
+                        <th>Risk</th>
+                        <th>Screenshot</th>
                     </tr>
                 </thead>
                 <tbody id="violationsTableBody">
@@ -66,7 +105,7 @@
             </table>
         </section>
 
-        <!-- Violation History Panel (Week 3) — shown on student click -->
+        <!-- Violation History Panel (Week 3 + Week 5: enhanced) — shown on student click -->
         <section id="historySection" class="panel" hidden>
             <div class="panel-header">
                 <h2>Violation History — <span id="historyStudentName">-</span></h2>
@@ -88,19 +127,70 @@
                         <th>Type</th>
                         <th>Application</th>
                         <th>Window Title</th>
+                        <th>Screenshot</th>
                     </tr>
                 </thead>
                 <tbody id="historyTableBody">
                 </tbody>
             </table>
         </section>
+
+        <!-- Blacklist Management Panel (Week 4) -->
+        <section id="blacklistSection" class="panel">
+            <div class="panel-header">
+                <h2>Blacklist Management</h2>
+            </div>
+            <form id="blacklistForm" class="bl-form">
+                <input type="text" id="blName" class="bl-input" placeholder="e.g. chrome.exe or chatgpt.com" required autocomplete="off" maxlength="255">
+                <select id="blType" class="bl-select">
+                    <option value="APPLICATION">Application</option>
+                    <option value="WEBSITE">Website</option>
+                </select>
+                <button type="submit" id="blSubmitBtn" class="bl-add-btn">Add</button>
+            </form>
+            <div id="blacklistFeedback" class="bl-feedback" hidden></div>
+            <div id="blacklistLoading" class="empty-state" hidden>Loading blacklist...</div>
+            <div id="blacklistEmpty" class="empty-state" hidden>No blacklisted items yet.</div>
+            <table id="blacklistTable" class="bl-table" hidden>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="blacklistTableBody">
+                </tbody>
+            </table>
+        </section>
     </main>
+
+    <!-- Screenshot Modal (Week 5) -->
+    <div id="screenshotModal" class="modal-overlay" hidden>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Screenshot</h3>
+                <button id="modalCloseBtn" class="btn-close" title="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modalLoading" class="empty-state">Loading screenshot...</div>
+                <img id="modalImage" class="modal-image" alt="Screenshot" hidden>
+                <div id="modalError" class="empty-state history-error" hidden>Failed to load screenshot.</div>
+            </div>
+            <div class="modal-footer">
+                <span id="modalMeta" class="modal-meta"></span>
+            </div>
+        </div>
+    </div>
 
     <!-- Toast container (Week 3) -->
     <div id="toastContainer" class="toast-container"></div>
 
+    <!-- Scripts: order matters! api → websocket → blacklist → screenshots → dashboard (orchestrator last) -->
     <script src="js/api.js"></script>
     <script src="js/websocket.js"></script>
+    <script src="js/blacklist.js"></script>
+    <script src="js/screenshots.js"></script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>

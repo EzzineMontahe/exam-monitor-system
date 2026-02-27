@@ -1,35 +1,38 @@
-// dashboard.js - Dashboard module (Week 1 + Week 2 + Week 3: Violations)
+// dashboard.js - Dashboard module (Week 1 + Week 2 + Week 3 + Week 4 + Week 5)
 
 // ─── GLOBAL STATE ────────────────────────────────────────────
 /** @type {ExamWebSocket|null} */
 let examWs = null;
 
-/** Connected students: Map<student_id, { student_id, username, status, last_seen }> */
+/** Connected students: Map<student_id, { student_id, username, status, last_seen, risk_score, risk_level, ... }> */
 const connectedStudents = new Map();
 
 /** Live violations list (newest first, capped at MAX_VIOLATIONS) */
 const violations = [];
 const MAX_VIOLATIONS = 100;
 
-/** Toast cap — max visible toasts at once (I4) */
+/** Toast cap — max visible toasts at once */
 const MAX_TOASTS = 5;
 
-/** History request counter to discard stale responses (I2) */
+/** History request counter to discard stale responses */
 let historyRequestId = 0;
+
+/** Current violation filter */
+let currentViolationFilter = 'ALL';
+
+/** Suspicious window alerts (Week 5) */
+const suspiciousAlerts = [];
+const MAX_ALERTS = 50;
 
 // ─── DOM REFERENCES (set after DOMContentLoaded) ─────────────
 let wsStatusEl, wsLabelEl, studentCountEl, studentTableEl, studentTableBodyEl, studentListEmptyEl;
-let violationCountEl, violationsTableEl, violationsTableBodyEl, violationsEmptyEl;
+let violationCountEl, violationsTableEl, violationsTableBodyEl, violationsEmptyEl, violationFilterEl;
 let historySectionEl, historyStudentNameEl, historyLoadingEl, historyEmptyEl, historyErrorEl, historyTableEl, historyTableBodyEl;
 let toastContainerEl;
+let analyticsSectionEl, analyticsEmptyEl, analyticsContentEl, analyticsTableBodyEl, alertCountEl;
 
 /**
- * Route Guard:
- * 1. Check localStorage for access_token
- * 2. Check role === 'instructor'
- * 3. If either missing/invalid → redirect to login.html
- * 4. Wire logout button
- * 5. Initialise WebSocket (Week 2)
+ * Route Guard & Initialisation.
  */
 document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('access_token');
@@ -43,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // Cache DOM references
+    // Cache DOM references — Week 2
     wsStatusEl = document.getElementById('wsStatus');
     wsLabelEl = wsStatusEl ? wsStatusEl.querySelector('.ws-label') : null;
     studentCountEl = document.getElementById('studentCount');
@@ -65,6 +68,14 @@ document.addEventListener('DOMContentLoaded', () => {
     historyTableBodyEl = document.getElementById('historyTableBody');
     toastContainerEl = document.getElementById('toastContainer');
 
+    // Week 5 DOM references
+    violationFilterEl = document.getElementById('violationFilter');
+    analyticsSectionEl = document.getElementById('analyticsSection');
+    analyticsEmptyEl = document.getElementById('analyticsEmpty');
+    analyticsContentEl = document.getElementById('analyticsContent');
+    analyticsTableBodyEl = document.getElementById('analyticsTableBody');
+    alertCountEl = document.getElementById('alertCount');
+
     // Display user info
     const userInfo = document.getElementById('userInfo');
     if (userInfo) {
@@ -74,12 +85,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Logout handler
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            logout();
-        });
+        logoutBtn.addEventListener('click', () => { logout(); });
     }
 
-    // ── Week 3: Wire history close button once (M1) ──
+    // ── Week 3: Wire history close button ──
     const historyCloseBtn = document.getElementById('historyCloseBtn');
     if (historyCloseBtn) {
         historyCloseBtn.addEventListener('click', () => {
@@ -87,18 +96,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ── Week 3: Event delegation for student rows (C1 + M4) ──
-    // Single listener instead of re-attaching on every render
+    // ── Event delegation for student rows (click to view history) ──
     if (studentTableBodyEl) {
-        const handleStudentRowAction = (row) => {
-            const studentId = Number(row.dataset.studentId);
-            const studentName = row.dataset.studentName;
-            loadViolationHistory(studentId, studentName);
-        };
-
         studentTableBodyEl.addEventListener('click', (e) => {
+            // Screenshot request button
+            const screenshotBtn = e.target.closest('.btn-screenshot');
+            if (screenshotBtn) {
+                e.stopPropagation();
+                const studentId = Number(screenshotBtn.dataset.studentId);
+                handleManualScreenshotRequest(studentId, screenshotBtn);
+                return;
+            }
+            // Row click → history
             const row = e.target.closest('.student-row');
-            if (row) handleStudentRowAction(row);
+            if (row) {
+                const studentId = Number(row.dataset.studentId);
+                const studentName = row.dataset.studentName;
+                loadViolationHistory(studentId, studentName);
+            }
         });
 
         studentTableBodyEl.addEventListener('keydown', (e) => {
@@ -106,11 +121,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 const row = e.target.closest('.student-row');
                 if (row) {
                     e.preventDefault();
-                    handleStudentRowAction(row);
+                    const studentId = Number(row.dataset.studentId);
+                    const studentName = row.dataset.studentName;
+                    loadViolationHistory(studentId, studentName);
                 }
             }
         });
     }
+
+    // ── Week 5: Violation filter ──
+    if (violationFilterEl) {
+        violationFilterEl.addEventListener('change', (e) => {
+            currentViolationFilter = e.target.value;
+            renderViolations();
+        });
+    }
+
+    // ── Week 5: Event delegation for screenshot indicators in violations/history ──
+    document.addEventListener('click', (e) => {
+        const indicator = e.target.closest('.screenshot-indicator, .screenshot-thumb');
+        if (indicator) {
+            const screenshotId = Number(indicator.dataset.screenshotId);
+            if (screenshotId) {
+                openScreenshotModal(screenshotId);
+            }
+        }
+    });
+
+    // ── Week 4: Initialise blacklist ──
+    initBlacklist();
+
+    // ── Week 5: Initialise screenshots module ──
+    initScreenshots();
+
+    // ── Week 5: Fetch initial risk scores ──
+    loadInitialRiskScores();
 
     // ── Week 2: Initialise WebSocket ──
     initWebSocket(token);
@@ -119,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ─── WEBSOCKET INITIALISATION ────────────────────────────────
 
 /**
- * Create ExamWebSocket, register handlers, and connect.
+ * Create ExamWebSocket, register all handlers, and connect.
  * @param {string} token
  */
 function initWebSocket(token) {
@@ -129,21 +174,25 @@ function initWebSocket(token) {
     examWs.onStateChange((state) => {
         updateWsStatusIndicator(state);
 
-        // Clear stale student data on fresh reconnect (I4)
+        // Clear stale student data on fresh reconnect
         if (state === 'connected' && connectedStudents.size > 0) {
-            connectedStudents.clear();
-            renderStudentList();
+            // Don't clear — CONNECTED_STUDENTS_LIST will replace the list
         }
 
-        // Mark student list as potentially stale when disconnected (I1)
+        // Mark student list as potentially stale when disconnected
         if (state === 'disconnected' || state === 'reconnecting') {
             markStudentsStale();
         }
     });
 
-    // ── Message Handlers (API CONTRACT §6.2) ──
+    // ── Message Handlers (HANDOFF §6) ──
 
-    // STUDENT_STATUS — student connected / disconnected
+    // CONNECTED_STUDENTS_LIST — full list sent on connect (Week 5 handoff)
+    examWs.on('CONNECTED_STUDENTS_LIST', (data) => {
+        handleConnectedStudentsList(data);
+    });
+
+    // STUDENT_STATUS — single student connected / disconnected
     examWs.on('STUDENT_STATUS', (data) => {
         handleStudentStatus(data);
     });
@@ -153,6 +202,21 @@ function initWebSocket(token) {
         handleNewViolation(data);
     });
 
+    // RISK_SCORE_UPDATE — real-time risk score change (Week 5)
+    examWs.on('RISK_SCORE_UPDATE', (data) => {
+        handleRiskScoreUpdate(data);
+    });
+
+    // SUSPICIOUS_WINDOW — suspicious window alert (Week 5)
+    examWs.on('SUSPICIOUS_WINDOW', (data) => {
+        handleSuspiciousWindow(data);
+    });
+
+    // SCREENSHOT_AVAILABLE — new screenshot stored (Week 5)
+    examWs.on('SCREENSHOT_AVAILABLE', (data) => {
+        handleScreenshotAvailable(data);
+    });
+
     // Connect
     examWs.connect();
 }
@@ -160,10 +224,38 @@ function initWebSocket(token) {
 // ─── STUDENT LIST MANAGEMENT ─────────────────────────────────
 
 /**
+ * Handle CONNECTED_STUDENTS_LIST — replaces entire student list.
+ * HANDOFF §6: [{student_id, username, status, last_seen}]
+ * @param {Array} data
+ */
+function handleConnectedStudentsList(data) {
+    if (!Array.isArray(data)) {
+        console.warn('[Dashboard] Invalid CONNECTED_STUDENTS_LIST data:', data);
+        return;
+    }
+
+    connectedStudents.clear();
+    data.forEach(student => {
+        const id = Number(student.student_id);
+        connectedStudents.set(id, {
+            student_id: id,
+            username: student.username || `Student ${id}`,
+            status: student.status || 'ONLINE',
+            last_seen: student.last_seen || new Date().toISOString(),
+            risk_score: null,
+            risk_level: null
+        });
+    });
+
+    renderStudentList();
+
+    // Refresh risk scores after student list update
+    loadInitialRiskScores();
+}
+
+/**
  * Handle STUDENT_STATUS message.
- * API CONTRACT §6.2:
- * { student_id, username, status: "ONLINE"|"OFFLINE", last_seen }
- *
+ * HANDOFF §6: { student_id, username, status: "ONLINE"|"OFFLINE", last_seen }
  * @param {object} data
  */
 function handleStudentStatus(data) {
@@ -172,18 +264,19 @@ function handleStudentStatus(data) {
         return;
     }
 
-    // Normalize student_id to Number to prevent Map key type mismatch (C2)
     const id = Number(data.student_id);
 
     if (data.status === 'ONLINE') {
+        const existing = connectedStudents.get(id);
         connectedStudents.set(id, {
             student_id: id,
             username: data.username || `Student ${id}`,
             status: 'ONLINE',
-            last_seen: data.last_seen || new Date().toISOString()
+            last_seen: data.last_seen || new Date().toISOString(),
+            risk_score: existing ? existing.risk_score : null,
+            risk_level: existing ? existing.risk_level : null
         });
     } else if (data.status === 'OFFLINE') {
-        // Keep in list but mark offline (so instructor sees who disconnected)
         const existing = connectedStudents.get(id);
         if (existing) {
             existing.status = 'OFFLINE';
@@ -193,7 +286,9 @@ function handleStudentStatus(data) {
                 student_id: id,
                 username: data.username || `Student ${id}`,
                 status: 'OFFLINE',
-                last_seen: data.last_seen || new Date().toISOString()
+                last_seen: data.last_seen || new Date().toISOString(),
+                risk_score: null,
+                risk_level: null
             });
         }
     }
@@ -201,8 +296,134 @@ function handleStudentStatus(data) {
     renderStudentList();
 }
 
+// ─── RISK SCORES (Week 5) ───────────────────────────────────
+
 /**
- * Render the student list table from the connectedStudents Map.
+ * Fetch initial risk scores and apply to student list.
+ */
+async function loadInitialRiskScores() {
+    try {
+        const scores = await fetchRiskScores({ onAuthFailure: logout });
+        if (!Array.isArray(scores)) return;
+
+        scores.forEach(s => {
+            const id = Number(s.student_id);
+            const existing = connectedStudents.get(id);
+            if (existing) {
+                existing.risk_score = s.risk_score;
+                existing.risk_level = s.risk_level;
+            } else {
+                // Student has a risk score but may not be connected yet — store it
+                connectedStudents.set(id, {
+                    student_id: id,
+                    username: s.username || `Student ${id}`,
+                    status: 'OFFLINE',
+                    last_seen: s.last_updated || new Date().toISOString(),
+                    risk_score: s.risk_score,
+                    risk_level: s.risk_level
+                });
+            }
+        });
+
+        renderStudentList();
+    } catch (err) {
+        console.error('[Dashboard] Failed to load initial risk scores:', err);
+    }
+}
+
+/**
+ * Handle RISK_SCORE_UPDATE WebSocket message.
+ * HANDOFF §6: { student_id, username, risk_score, risk_level, previous_score }
+ * @param {object} data
+ */
+function handleRiskScoreUpdate(data) {
+    if (!data || !data.student_id) return;
+
+    const id = Number(data.student_id);
+    const existing = connectedStudents.get(id);
+
+    if (existing) {
+        existing.risk_score = data.risk_score;
+        existing.risk_level = data.risk_level;
+    } else {
+        connectedStudents.set(id, {
+            student_id: id,
+            username: data.username || `Student ${id}`,
+            status: 'ONLINE',
+            last_seen: new Date().toISOString(),
+            risk_score: data.risk_score,
+            risk_level: data.risk_level
+        });
+    }
+
+    renderStudentList();
+}
+
+// ─── SUSPICIOUS WINDOW ALERTS (Week 5) ──────────────────────
+
+/**
+ * Handle SUSPICIOUS_WINDOW WebSocket message.
+ * HANDOFF §6: { student_id, username, window_title, application_name, risk_score }
+ * @param {object} data
+ */
+function handleSuspiciousWindow(data) {
+    if (!data || !data.student_id) return;
+
+    const alert = {
+        student_id: Number(data.student_id),
+        username: data.username || `Student ${data.student_id}`,
+        window_title: data.window_title || '—',
+        application_name: data.application_name || '—',
+        risk_score: data.risk_score ?? null,
+        timestamp: new Date().toISOString()
+    };
+
+    suspiciousAlerts.unshift(alert);
+    if (suspiciousAlerts.length > MAX_ALERTS) {
+        suspiciousAlerts.length = MAX_ALERTS;
+    }
+
+    renderAnalytics();
+    showToast(`⚠ Suspicious window: ${alert.username} — ${alert.window_title}`, 'warning');
+}
+
+/**
+ * Render the behavior analytics / suspicious alerts panel.
+ */
+function renderAnalytics() {
+    if (!analyticsTableBodyEl) return;
+
+    if (alertCountEl) alertCountEl.textContent = suspiciousAlerts.length;
+
+    if (suspiciousAlerts.length === 0) {
+        if (analyticsEmptyEl) analyticsEmptyEl.hidden = false;
+        if (analyticsContentEl) analyticsContentEl.hidden = true;
+        return;
+    }
+
+    if (analyticsEmptyEl) analyticsEmptyEl.hidden = true;
+    if (analyticsContentEl) analyticsContentEl.hidden = false;
+
+    analyticsTableBodyEl.innerHTML = suspiciousAlerts.map((a, i) => {
+        const time = formatTimestamp(a.timestamp);
+        const riskBadge = renderRiskBadge(a.risk_score);
+        const isNew = i === 0 ? 'violation-new' : '';
+        return `
+            <tr class="${isNew}">
+                <td>${time}</td>
+                <td>${escapeHtml(a.username)}</td>
+                <td class="cell-truncate" title="${escapeHtml(a.window_title)}">${escapeHtml(a.window_title)}</td>
+                <td>${escapeHtml(a.application_name)}</td>
+                <td>${riskBadge}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// ─── STUDENT LIST RENDERING ─────────────────────────────────
+
+/**
+ * Render the student list table with risk scores and screenshot request button.
  */
 function renderStudentList() {
     if (!studentTableBodyEl) return;
@@ -223,12 +444,24 @@ function renderStudentList() {
     studentTableEl.hidden = false;
     studentListEmptyEl.hidden = true;
 
-    // Sort: online first, stale second, offline last, then by username
+    // Sort: high-risk first, then online first, then by username
     const statusOrder = { ONLINE: 0, STALE: 1, OFFLINE: 2 };
     const sorted = [...connectedStudents.values()].sort((a, b) => {
+        // High-risk online students bubble to top
+        const aHighRisk = a.status === 'ONLINE' && (a.risk_score ?? 0) > 60;
+        const bHighRisk = b.status === 'ONLINE' && (b.risk_score ?? 0) > 60;
+        if (aHighRisk && !bHighRisk) return -1;
+        if (!aHighRisk && bHighRisk) return 1;
+
         const orderA = statusOrder[a.status] ?? 2;
         const orderB = statusOrder[b.status] ?? 2;
         if (orderA !== orderB) return orderA - orderB;
+
+        // Then by risk score descending
+        const riskA = a.risk_score ?? 0;
+        const riskB = b.risk_score ?? 0;
+        if (riskA !== riskB) return riskB - riskA;
+
         return a.username.localeCompare(b.username);
     });
 
@@ -240,17 +473,49 @@ function renderStudentList() {
         };
         const { css: statusClass, label: statusLabel } = statusMap[student.status] || statusMap.OFFLINE;
         const lastSeen = formatTimestamp(student.last_seen);
+        const riskBadge = renderRiskBadge(student.risk_score, student.risk_level);
+        const isHighRisk = student.status === 'ONLINE' && (student.risk_score ?? 0) > 60;
+        const rowClass = isHighRisk ? `${statusClass} student-row student-high-risk` : `${statusClass} student-row`;
+
+        // Screenshot request button (only for online students)
+        const screenshotBtn = student.status === 'ONLINE'
+            ? `<button class="btn-screenshot" data-student-id="${student.student_id}" title="Request screenshot">📷 Request</button>`
+            : '<span class="text-muted">—</span>';
+
         return `
-            <tr class="${statusClass} student-row" data-student-id="${student.student_id}" data-student-name="${escapeHtml(student.username)}" role="button" tabindex="0" title="Click to view violation history">
+            <tr class="${rowClass}" data-student-id="${student.student_id}" data-student-name="${escapeHtml(student.username)}" role="button" tabindex="0" title="Click to view violation history">
                 <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
                 <td>${escapeHtml(student.username)}</td>
                 <td>${student.student_id}</td>
+                <td>${riskBadge}</td>
                 <td>${lastSeen}</td>
+                <td>${screenshotBtn}</td>
             </tr>
         `;
     }).join('');
+}
 
-    // Click/keyboard handlers wired via event delegation in DOMContentLoaded (C1)
+/**
+ * Render a risk score badge with color coding.
+ * @param {number|null} score
+ * @param {string|null} [level]
+ * @returns {string} HTML string
+ */
+function renderRiskBadge(score, level) {
+    if (score === null || score === undefined) {
+        return '<span class="risk-badge" style="background:#f3f4f6;color:#9ca3af;">—</span>';
+    }
+
+    // Derive level from score if not provided
+    if (!level) {
+        if (score <= 30) level = 'LOW';
+        else if (score <= 60) level = 'MEDIUM';
+        else level = 'HIGH';
+    }
+
+    const classMap = { LOW: 'risk-low', MEDIUM: 'risk-medium', HIGH: 'risk-high' };
+    const css = classMap[level] || 'risk-low';
+    return `<span class="risk-badge ${css}" title="${level} risk">${score}</span>`;
 }
 
 // ─── WS STATUS INDICATOR ────────────────────────────────────
@@ -262,7 +527,6 @@ function renderStudentList() {
 function updateWsStatusIndicator(state) {
     if (!wsStatusEl || !wsLabelEl) return;
 
-    // Remove all state classes
     wsStatusEl.classList.remove('connected', 'connecting', 'reconnecting', 'disconnected');
     wsStatusEl.classList.add(state);
 
@@ -276,13 +540,11 @@ function updateWsStatusIndicator(state) {
     wsStatusEl.title = `WebSocket ${state}`;
 }
 
-// ─── VIOLATION MANAGEMENT (Week 3) ──────────────────────────
+// ─── VIOLATION MANAGEMENT (Week 3 + Week 5 enhanced) ────────
 
 /**
  * Handle NEW_VIOLATION message from WebSocket.
- * API CONTRACT §6.2:
- * { student_id, username, event_type, application_name, timestamp, screenshot_id, risk_score }
- *
+ * HANDOFF §6: { student_id, username, event_type, application_name, timestamp, screenshot_id, risk_score }
  * @param {object} data
  */
 function handleNewViolation(data) {
@@ -296,6 +558,8 @@ function handleNewViolation(data) {
         username: data.username || `Student ${data.student_id}`,
         event_type: data.event_type,
         application_name: data.application_name || '—',
+        window_title: data.window_title || null,
+        duration_seconds: data.duration_seconds || null,
         timestamp: data.timestamp || new Date().toISOString(),
         screenshot_id: data.screenshot_id || null,
         risk_score: data.risk_score ?? null
@@ -313,36 +577,51 @@ function handleNewViolation(data) {
 }
 
 /**
- * Render the live violations table.
+ * Render the live violations table with filtering (Week 5).
  */
 function renderViolations() {
     if (!violationsTableBodyEl) return;
 
-    // Update count badge
+    // Apply filter
+    const filtered = currentViolationFilter === 'ALL'
+        ? violations
+        : violations.filter(v => v.event_type === currentViolationFilter);
+
+    // Update count badge (always show total)
     if (violationCountEl) {
         violationCountEl.textContent = violations.length;
     }
 
     // Empty state
-    if (violations.length === 0) {
+    if (filtered.length === 0) {
         violationsTableEl.hidden = true;
         violationsEmptyEl.hidden = false;
+        violationsEmptyEl.textContent = currentViolationFilter === 'ALL'
+            ? 'No violations detected.'
+            : `No ${currentViolationFilter.replace(/_/g, ' ').toLowerCase()} violations.`;
         return;
     }
 
     violationsTableEl.hidden = false;
     violationsEmptyEl.hidden = true;
 
-    violationsTableBodyEl.innerHTML = violations.map((v, index) => {
+    violationsTableBodyEl.innerHTML = filtered.map((v, index) => {
         const typeBadge = getViolationTypeBadge(v.event_type);
         const time = formatTimestamp(v.timestamp);
         const isNew = index === 0 ? 'violation-new' : '';
+        const windowTitle = v.window_title ? escapeHtml(v.window_title) : '—';
+        const riskBadge = renderRiskBadge(v.risk_score);
+        const screenshotCell = renderScreenshotCell(v.screenshot_id);
+
         return `
-            <tr class="${isNew}">
+            <tr class="${isNew}" data-event-id="${v.event_id || ''}">
                 <td>${time}</td>
                 <td>${escapeHtml(v.username)}</td>
                 <td>${typeBadge}</td>
                 <td>${escapeHtml(v.application_name)}</td>
+                <td class="cell-truncate" title="${windowTitle}">${windowTitle}</td>
+                <td>${riskBadge}</td>
+                <td class="screenshot-cell">${screenshotCell}</td>
             </tr>
         `;
     }).join('');
@@ -363,26 +642,22 @@ function getViolationTypeBadge(eventType) {
     return `<span class="violation-type-badge ${info.css}">${info.label}</span>`;
 }
 
-// ─── VIOLATION HISTORY (Week 3) ─────────────────────────────
+// ─── VIOLATION HISTORY (Week 3 + Week 5 enhanced) ───────────
 
 /**
  * Fetch and display violation history for a specific student.
- * Uses GET /monitoring/events?student_id={id} (API CONTRACT §3)
- *
+ * Uses GET /monitoring/events?student_id={id} (HANDOFF §3)
  * @param {number} studentId
  * @param {string} studentName
  */
 async function loadViolationHistory(studentId, studentName) {
     if (!historySectionEl) return;
 
-    // Increment request counter to detect stale responses (I2)
     const currentRequestId = ++historyRequestId;
 
-    // Show panel, set header
     historySectionEl.hidden = false;
     historyStudentNameEl.textContent = studentName;
 
-    // Reset states
     historyLoadingEl.hidden = false;
     historyEmptyEl.hidden = true;
     historyErrorEl.hidden = true;
@@ -391,7 +666,6 @@ async function loadViolationHistory(studentId, studentName) {
     try {
         const events = await fetchMonitoringEvents(studentId, { onAuthFailure: logout });
 
-        // Discard stale response if a newer request was fired (I2)
         if (currentRequestId !== historyRequestId) return;
 
         historyLoadingEl.hidden = true;
@@ -407,18 +681,19 @@ async function loadViolationHistory(studentId, studentName) {
             const time = formatTimestamp(ev.timestamp);
             const windowTitle = ev.window_title ? escapeHtml(ev.window_title) : '—';
             const appName = ev.application_name ? escapeHtml(ev.application_name) : '—';
+            const screenshotCell = renderScreenshotCell(ev.screenshot_id);
             return `
                 <tr>
                     <td>${time}</td>
                     <td>${typeBadge}</td>
                     <td>${appName}</td>
                     <td class="cell-truncate" title="${windowTitle}">${windowTitle}</td>
+                    <td class="screenshot-cell">${screenshotCell}</td>
                 </tr>
             `;
         }).join('');
 
     } catch (err) {
-        // Discard stale error if a newer request was fired (I2)
         if (currentRequestId !== historyRequestId) return;
 
         console.error('[Dashboard] Failed to load violation history:', err);
@@ -435,36 +710,14 @@ async function loadViolationHistory(studentId, studentName) {
  * @param {object} violation
  */
 function showViolationToast(violation) {
-    if (!toastContainerEl) return;
-
-    // Cap visible toasts (I4) — remove oldest if at limit
-    while (toastContainerEl.children.length >= MAX_TOASTS) {
-        toastContainerEl.firstElementChild.remove();
-    }
-
-    const toast = document.createElement('div');
-    toast.className = 'toast toast-violation';
-    toast.innerHTML = `
-        <span class="toast-icon">⚠</span>
-        <span class="toast-text">
-            <strong>${escapeHtml(violation.username)}</strong> — ${escapeHtml(violation.event_type.replace(/_/g, ' '))}
-            ${violation.application_name !== '—' ? ': ' + escapeHtml(violation.application_name) : ''}
-        </span>
-    `;
-
-    toastContainerEl.appendChild(toast);
-
-    // Trigger enter animation on next frame
-    requestAnimationFrame(() => { toast.classList.add('toast-visible'); });
-
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => {
-        toast.classList.remove('toast-visible');
-        toast.addEventListener('transitionend', () => toast.remove());
-        // Fallback removal after transition
-        setTimeout(() => { if (toast.parentNode) toast.remove(); }, 500);
-    }, 5000);
+    const message = `${violation.username} — ${violation.event_type.replace(/_/g, ' ')}${violation.application_name !== '—' ? ': ' + violation.application_name : ''}`;
+    showToast(message, 'warning');
 }
+
+/* showViolationToast now delegates to the generic showToast() in screenshots.js */
+// Legacy wrapper kept to avoid changing call sites.
+// The original standalone implementation has been removed to avoid
+// dual toast systems competing for the same #toastContainer.
 
 /**
  * Update page title with violation count for tab visibility.
@@ -479,8 +732,7 @@ function updatePageTitle() {
 // ─── UTILITIES ──────────────────────────────────────────────
 
 /**
- * Mark all students as stale when connection is lost (I1).
- * Adds visual indicator that statuses may be outdated.
+ * Mark all students as stale when connection is lost.
  */
 function markStudentsStale() {
     connectedStudents.forEach(student => {
@@ -514,7 +766,7 @@ function formatTimestamp(isoString) {
 function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 /**
