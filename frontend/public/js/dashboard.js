@@ -738,6 +738,7 @@ function handleNewViolation(data) {
     }
 
     const violation = {
+        event_id: data.event_id ?? null,
         student_id: Number(data.student_id),
         username: data.username || `Student ${data.student_id}`,
         event_type: data.event_type,
