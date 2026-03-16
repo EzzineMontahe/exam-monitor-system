@@ -776,8 +776,16 @@ function renderViolations() {
     // Apply sort (Week 5)
     if (violationSortField) {
         filtered.sort((a, b) => {
-            const aVal = a[violationSortField] ?? 0;
-            const bVal = b[violationSortField] ?? 0;
+            const getVal = (v) => {
+                if (violationSortField === 'timestamp') {
+                    const t = Date.parse(v.timestamp);
+                    return Number.isNaN(t) ? 0 : t;
+                }
+                return v[violationSortField] ?? 0;
+            };
+
+            const aVal = getVal(a);
+            const bVal = getVal(b);
             return violationSortAsc ? aVal - bVal : bVal - aVal;
         });
     }

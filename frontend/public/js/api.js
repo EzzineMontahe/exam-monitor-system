@@ -69,7 +69,17 @@ async function login(username, password) {
  */
 function isTokenExpired(token) {
     try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payloadPart = token.split('.')[1];
+        if (!payloadPart) return true;
+
+        // Normalize base64url → base64 before decoding (tokens may omit padding)
+        const normalized = payloadPart
+            .replace(/-/g, '+')
+            .replace(/_/g, '/')
+            .padEnd(Math.ceil(payloadPart.length / 4) * 4, '=');
+
+        const payload = JSON.parse(atob(normalized));
+        if (!payload.exp) return true;
         return payload.exp * 1000 < Date.now();
     } catch {
         return true; // malformed token = treat as expired
@@ -250,23 +260,6 @@ async function fetchStudentRiskScore(studentId, { onAuthFailure = null } = {}) {
 // ─── SCREENSHOTS API (Week 5) ───────────────────────────────
 
 /**
- * Fetch screenshot metadata.
- * HANDOFF §5: GET /screenshots/{screenshot_id}
- *
- * @param {number} screenshotId
- * @param {object} [config]
- * @param {function} [config.onAuthFailure]
- * @returns {Promise<{id, student_id, event_id, trigger_type, file_url, captured_at, thumbnail_url}>}
- */
-async function fetchScreenshotMeta(screenshotId, { onAuthFailure = null } = {}) {
-    return fetchWithAuth(
-        `/screenshots/${encodeURIComponent(screenshotId)}`,
-        { method: 'GET' },
-        { onAuthFailure }
-    );
-}
-
-/**
  * Get the full URL for downloading a screenshot.
  * HANDOFF §5: GET /screenshots/download/{screenshot_id} → binary JPEG
  * @param {number} screenshotId
@@ -284,23 +277,6 @@ function getScreenshotDownloadURL(screenshotId) {
  */
 function getScreenshotThumbnailURL(screenshotId) {
     return `${API_BASE_URL}/screenshots/thumbnail/${screenshotId}`;
-}
-
-/**
- * Fetch all screenshots for a student.
- * HANDOFF §5: GET /screenshots/student/{student_id}
- *
- * @param {number} studentId
- * @param {object} [config]
- * @param {function} [config.onAuthFailure]
- * @returns {Promise<Array<{id, event_id, trigger_type, file_url, captured_at, thumbnail_url}>>}
- */
-async function fetchStudentScreenshots(studentId, { onAuthFailure = null } = {}) {
-    return fetchWithAuth(
-        `/screenshots/student/${encodeURIComponent(studentId)}`,
-        { method: 'GET' },
-        { onAuthFailure }
-    );
 }
 
 /**

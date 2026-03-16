@@ -2,11 +2,9 @@ You are acting as a senior code reviewer and system architect.
 
 We are reviewing completed work for a distributed Exam Monitoring System.
 
-ROLE: [Backend / Desktop / Frontend]
-WEEK: [X]
+ROLE: [Frontend]
+WEEK: [5]
 
-Files to Review:
-[Paste main files developed this week]
 
 Your responsibilities:
 

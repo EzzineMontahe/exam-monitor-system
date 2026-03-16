@@ -68,25 +68,6 @@ function initScreenshots() {
     });
 }
 
-// ─── THUMBNAIL LOADING ──────────────────────────────────────
-
-/**
- * Get or load a screenshot thumbnail. Returns a blob URL from cache or fetches it.
- * @param {number} screenshotId
- * @returns {Promise<string>} blob URL
- */
-async function getScreenshotThumbnail(screenshotId) {
-    const cacheKey = `thumb_${screenshotId}`;
-    if (screenshotCache.has(cacheKey)) {
-        return screenshotCache.get(cacheKey);
-    }
-
-    const url = getScreenshotThumbnailURL(screenshotId);
-    const blobUrl = await fetchImageAsBlob(url, { onAuthFailure: logout });
-    screenshotCacheSet(cacheKey, blobUrl);
-    return blobUrl;
-}
-
 /**
  * Render a screenshot thumbnail HTML or a clickable indicator.
  * Lazy-loads by returning a placeholder that triggers load on visibility.
@@ -98,16 +79,6 @@ function renderScreenshotCell(screenshotId) {
     return `<button class="screenshot-indicator" data-screenshot-id="${screenshotId}" title="View screenshot">
         <span class="screenshot-icon">📷</span> View
     </button>`;
-}
-
-/**
- * Render a loaded thumbnail image element.
- * @param {number} screenshotId
- * @param {string} blobUrl
- * @returns {string} HTML string
- */
-function renderThumbnailImg(screenshotId, blobUrl) {
-    return `<img src="${blobUrl}" class="screenshot-thumb" data-screenshot-id="${screenshotId}" alt="Screenshot" title="Click to enlarge">`;
 }
 
 // ─── MODAL ──────────────────────────────────────────────────
