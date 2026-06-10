@@ -1,3 +1,12 @@
+## 👩‍💻 My Contribution — Frontend Developer
+I built the complete **instructor web dashboard** (HTML/JS):
+- Real-time student monitoring with risk scores
+- Violation alerts with screenshot evidence
+- Screenshot gallery per student
+- Blacklist configuration interface
+- Live WebSocket updates
+- Behavior analytics dashboard
+
 # 🤖 AI DEVELOPMENT PROTOCOL (MANDATORY)
 
 **Project:** Exam Monitoring System
